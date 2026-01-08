@@ -13,10 +13,12 @@
     "bcryptjs": "^3.0.3",
     "formidable-serverless": "^1.1.1",
     "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.562.0",
     "mongodb": "^7.0.0",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-rnd": "^10.5.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",

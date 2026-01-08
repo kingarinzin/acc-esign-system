@@ -10,6 +10,9 @@ const allowedMimeTypes = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
+
+
+
 export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get("authorization");
@@ -36,6 +39,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+
+
+
 
 export async function POST(req: Request) {
   try {
@@ -70,7 +77,7 @@ export async function POST(req: Request) {
     const data = JSON.parse(dataRaw.toString());
     const { title, date, description, participants, action } = data;
 
-    if (!title || !date || !description || !Array.isArray(participants)) {
+    if (!title || !description || !Array.isArray(participants)) {
       return NextResponse.json(
         { error: "Invalid form data" },
         { status: 400 }

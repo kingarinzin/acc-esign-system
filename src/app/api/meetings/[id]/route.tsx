@@ -1,4 +1,3 @@
-// src/app/api/meetings/[id]/route.tsx
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -7,34 +6,23 @@ import formidable from "formidable-serverless";
 import fs from "fs";
 import path from "path";
 
-// Allowed file types
 const allowedMimeTypes = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-// Helper: authenticate user from Bearer token
 async function authenticate(req: Request) {
   const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    throw new Error("Unauthorized");
-  }
-
+  if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
   const token = authHeader.split(" ")[1];
-  let decoded: any;
-  try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET!);
-  } catch {
-    throw new Error("Invalid token");
-  }
-  return decoded;
+  return jwt.verify(token, process.env.JWT_SECRET!) as any;
 }
 
 // GET /api/meetings/:id
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params; // Fix: Must await params in Next.js 15
     const decoded = await authenticate(req);
 
     const client = await clientPromise;
@@ -49,116 +37,80 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     return NextResponse.json({ meeting });
   } catch (err: any) {
-    console.error("MEETING GET ERROR:", err);
-    const status = err.message === "Unauthorized" || err.message === "Invalid token" ? 401 : 500;
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status });
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }
 
-// PUT /api/meetings/:id
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const decoded = await authenticate(req);
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), "public/uploads");
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    // 1. Use native req.formData() instead of formidable
+    const formData = await req.formData();
+    const dataField = formData.get("data") as string;
+    const file = formData.get("file") as File | null;
 
-    const form = new formidable.IncomingForm({
-      uploadDir,
-      keepExtensions: true,
-      multiples: false,
-    });
-
-    const { fields, files }: any = await new Promise((resolve, reject) => {
-      form.parse(req as any, (err: any, fields: any, files: any) => {
-        if (err) reject(err);
-        else resolve({ fields, files });
-      });
-    });
-
-    if (!fields.data) {
-      return NextResponse.json({ error: "Missing form data" }, { status: 400 });
+    if (!dataField) {
+      return NextResponse.json({ error: "Missing data" }, { status: 400 });
     }
 
-    const parsedData = JSON.parse(fields.data);
-    const { title, date, description, participants, action } = parsedData;
+    const { title, description, participants, action } = JSON.parse(dataField);
 
-    if (!title || !date || !description || !Array.isArray(participants)) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
-    }
+    let fileUpdate: any = {};
 
-    const uploadedFile = files.file;
-    let fileData: { fileName?: string; filePath?: string } = {};
+    // 2. Handle File Upload if a new file exists
+    if (file && file.size > 0) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const filename = Date.now() + "_" + file.name.replaceAll(" ", "_");
+      const uploadDir = path.join(process.cwd(), "public/uploads");
+      
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+      
+      fs.writeFileSync(path.join(uploadDir, filename), buffer);
 
-    if (uploadedFile) {
-      if (!allowedMimeTypes.includes(uploadedFile.mimetype)) {
-        return NextResponse.json(
-          { error: "Only PDF or Word documents are allowed" },
-          { status: 400 }
-        );
-      }
-      fileData = {
-        fileName: uploadedFile.originalFilename,
-        filePath: `/uploads/${uploadedFile.newFilename}`,
+      fileUpdate = {
+        fileName: file.name,
+        filePath: `/uploads/${filename}`,
       };
     }
 
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
+    // 3. Perform the update
     const result = await db.collection("meetings").updateOne(
       { _id: new ObjectId(id), organizerId: decoded.id },
       {
         $set: {
           title,
-          date,
           description,
           participants: participants.map((p: any) => ({ ...p, signed: false })),
           status: action === "prepare" ? "Prepared" : "Draft",
-          ...fileData,
+          updatedAt: new Date(),
+          ...fileUpdate, // Only overwrites fileName/Path if a new file was sent
         },
       }
     );
 
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      message: action === "prepare" ? "Meeting prepared successfully" : "Draft updated",
-      meetingId: id,
-    });
+    return NextResponse.json({ message: "Updated", id });
   } catch (err: any) {
-    console.error("MEETING PUT ERROR:", err);
-    const status = err.message === "Unauthorized" || err.message === "Invalid token" ? 401 : 500;
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status });
+    console.error("PUT ERROR:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
 // DELETE /api/meetings/:id
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params; // Fix: Must await params
     const decoded = await authenticate(req);
-
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
-    const result = await db.collection("meetings").deleteOne({
-      _id: new ObjectId(id),
-      organizerId: decoded.id,
-    });
-
-    if (result.deletedCount === 0) {
-      return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ message: "Meeting deleted successfully" });
+    await db.collection("meetings").deleteOne({ _id: new ObjectId(id), organizerId: decoded.id });
+    return NextResponse.json({ message: "Deleted" });
   } catch (err: any) {
-    console.error("MEETING DELETE ERROR:", err);
-    const status = err.message === "Unauthorized" || err.message === "Invalid token" ? 401 : 500;
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status });
+    return NextResponse.json({ error: "Delete failed" }, { status: 500 });
   }
 }
