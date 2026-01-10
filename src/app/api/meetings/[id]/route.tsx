@@ -20,26 +20,44 @@ async function authenticate(req: Request) {
 }
 
 // GET /api/meetings/:id
+// export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+//   try {
+//     const { id } = await params; // Fix: Must await params in Next.js 15
+//     const decoded = await authenticate(req);
+
+//     const client = await clientPromise;
+//     const db = client.db("e_sign_db");
+
+//     const meeting = await db.collection("meetings").findOne({
+//       _id: new ObjectId(id),
+//       organizerId: decoded.id,
+//     });
+
+//     if (!meeting) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+
+//     return NextResponse.json({ meeting });
+//   } catch (err: any) {
+//     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
+//   }
+// }
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params; // Fix: Must await params in Next.js 15
-    const decoded = await authenticate(req);
-
+    const { id } = await params;
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
-    const meeting = await db.collection("meetings").findOne({
-      _id: new ObjectId(id),
-      organizerId: decoded.id,
-    });
+    const meeting = await db.collection("meetings").findOne({ _id: new ObjectId(id) });
 
-    if (!meeting) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+    if (!meeting) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    return NextResponse.json({ meeting });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
+    // Return the meeting object
+    return NextResponse.json(meeting);
+  } catch (err) {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
