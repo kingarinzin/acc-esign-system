@@ -82,6 +82,7 @@ export default function PreparePage() {
 
   // Track each page container size for px conversion
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
+  const [placingType, setPlacingType] = useState<FieldType | null>(null);
 
   // --- Fetch meeting ---
   useEffect(() => {
@@ -142,6 +143,15 @@ export default function PreparePage() {
       },
     ]);
   };
+
+    useEffect(() => {
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") setPlacingType(null);
+  };
+  window.addEventListener("keydown", onKeyDown);
+  return () => window.removeEventListener("keydown", onKeyDown);
+}, []);
+
 
   const removeField = (fieldId: string) => {
     setFields((prev) => prev.filter((f) => f.id !== fieldId));
@@ -245,11 +255,6 @@ export default function PreparePage() {
     );
   }
 
-  // const fileUrlRaw = meeting?.filePath;
-  // const fileUrl =
-  //   typeof fileUrlRaw === "string" && fileUrlRaw.startsWith("/uploads/")
-  //     ? fileUrlRaw.replace("/uploads/", "/api/uploads/")
-  //     : fileUrlRaw;
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const storedName =
@@ -261,6 +266,7 @@ export default function PreparePage() {
   const isPdf = storedName.toLowerCase().endsWith(".pdf");
 
   const fileUrl = id ? `/api/meetings/${id}/pdf` : "";
+
 
   return (
     <div className="h-screen flex flex-col bg-[#f0f2f5] overflow-hidden">
@@ -308,40 +314,12 @@ export default function PreparePage() {
               Draggable Fields
             </h3>
             <div className="space-y-3">
-              <button
-                onClick={() => addField("signature")}
-                className="w-full flex items-center gap-3 p-4 border border-gray-100 rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition group bg-white shadow-sm"
-              >
-                <div className="bg-orange-100 p-2 rounded-lg text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition">
-                  <PenTool size={18} />
-                </div>
-                <span className="text-sm font-bold text-gray-700">
-                  Signature
-                </span>
+              <button onClick={() => setPlacingType("signature")}>
+                Signature
               </button>
-
-              <button
-                onClick={() => addField("name")}
-                className="w-full flex items-center gap-3 p-4 border border-gray-100 rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition group bg-white shadow-sm"
-              >
-                <div className="bg-blue-100 p-2 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
-                  <Type size={18} />
-                </div>
-                <span className="text-sm font-bold text-gray-700">
-                  Full Name
-                </span>
-              </button>
-
-              <button
-                onClick={() => addField("date")}
-                className="w-full flex items-center gap-3 p-4 border border-gray-100 rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition group bg-white shadow-sm"
-              >
-                <div className="bg-green-100 p-2 rounded-lg text-green-600 group-hover:bg-green-600 group-hover:text-white transition">
-                  <Calendar size={18} />
-                </div>
-                <span className="text-sm font-bold text-gray-700">
-                  Date Signed
-                </span>
+              <button onClick={() => setPlacingType("name")}>Full Name</button>
+              <button onClick={() => setPlacingType("date")}>
+                Date Signed
               </button>
             </div>
           </div>
@@ -381,52 +359,14 @@ export default function PreparePage() {
                 No PDF filePath found for this meeting/document.
               </div>
             ) : (
-              // <Document
-              //   file={fileUrl}
-              //   onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
-              //   loading={
-              //     <div className="flex items-center gap-3 text-gray-600">
-              //       <Loader2 className="animate-spin" />
-              //       Loading PDF...
-              //     </div>
-              //   }
-              // >
-              //   {Array.from(new Array(numPages), (_el, index) => {
-              //     const pageNumber = index + 1;
-
-              //     return (
-              //       <div key={pageNumber} className="mb-10">
-              //         {/* Page wrapper (relative) so RND bounds work per page */}
-              //         <PageWrapper
-              //           pageNumber={pageNumber}
-              //           onRect={(page, w, h) =>
-              //             setPageRects((prev) => ({
-              //               ...prev,
-              //               [page]: { w, h },
-              //             }))
-              //           }
-              //         >
-              //           <Page
-              //             pageNumber={pageNumber}
-              //             width={850}
-              //             renderTextLayer={false}
-              //             renderAnnotationLayer={false}
-              //           />
-
-              //           <div className="absolute inset-0 z-10 pointer-events-none">
-              //             {/* your Rnd fields exactly as you already have */}
-              //           </div>
-              //         </PageWrapper>
-              //       </div>
-              //     );
-              //   })}
-              // </Document>
               <PdfRenderer
                 fileUrl={fileUrl}
                 authToken={token || ""}
                 isPdf={isPdf}
                 fields={fields}
                 setFields={setFields}
+                placingType={placingType}
+                onPlaced={() => setPlacingType(null)}
               />
             )}
           </div>

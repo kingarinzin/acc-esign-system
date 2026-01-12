@@ -23,10 +23,14 @@ function PageWrapper({
   pageNumber,
   children,
   onRect,
+  placingType,
+  onPlace,
 }: {
   pageNumber: number;
   children: React.ReactNode;
   onRect: (page: number, w: number, h: number) => void;
+  placingType: FieldType | null;
+  onPlace: (page: number, xPct: number, yPct: number) => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -46,7 +50,27 @@ function PageWrapper({
   }, [pageNumber, onRect]);
 
   return (
-    <div ref={ref} className="relative bg-white shadow-2xl border border-gray-300">
+    <div
+      ref={ref}
+      className={`relative bg-white shadow-2xl border border-gray-300 ${
+        placingType ? "cursor-crosshair" : ""
+      }`}
+      onClick={(e) => {
+        if (!placingType) return;
+
+        const node = ref.current;
+        if (!node) return;
+
+        const r = node.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+
+        const xPct = Math.min(1, Math.max(0, x / r.width));
+        const yPct = Math.min(1, Math.max(0, y / r.height));
+
+        onPlace(pageNumber, xPct, yPct);
+      }}
+    >
       {children}
     </div>
   );
@@ -55,17 +79,21 @@ function PageWrapper({
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 export default function PdfRenderer({
-  fileUrl,      // /api/meetings/:id/pdf
+  fileUrl, // /api/meetings/:id/pdf
   authToken,
   isPdf,
   fields,
   setFields,
+  placingType,
+  onPlaced,
 }: {
   fileUrl: string;
   authToken: string;
   isPdf: boolean;
   fields: Field[];
   setFields: React.Dispatch<React.SetStateAction<Field[]>>;
+  placingType: FieldType | null;
+  onPlaced: () => void;
 }) {
   const [numPages, setNumPages] = useState(0);
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
@@ -128,7 +156,13 @@ export default function PdfRenderer({
     };
   }, [absoluteUrl, authToken]);
 
-  const pxFromPct = (page: number, xPct: number, yPct: number, wPct: number, hPct: number) => {
+  const pxFromPct = (
+    page: number,
+    xPct: number,
+    yPct: number,
+    wPct: number,
+    hPct: number
+  ) => {
     const rect = pageRects[page];
     if (!rect) return { x: 0, y: 0, w: 160, h: 48 };
     return {
@@ -139,7 +173,13 @@ export default function PdfRenderer({
     };
   };
 
-  const pctFromPx = (page: number, x: number, y: number, w: number, h: number) => {
+  const pctFromPx = (
+    page: number,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
     const rect = pageRects[page];
     if (!rect) return null;
     return {
@@ -195,6 +235,12 @@ export default function PdfRenderer({
     );
   }
 
+  const FIELD_PNG: Record<FieldType, string> = {
+    signature: "/field-templates/signature.png",
+    name: "/field-templates/name.png",
+    date: "/field-templates/date.png",
+  };
+
   return (
     <Document
       file={blobUrl}
@@ -218,20 +264,53 @@ export default function PdfRenderer({
           <div key={pageNumber} className="mb-10">
             <PageWrapper
               pageNumber={pageNumber}
+              placingType={placingType}
               onRect={(page, w, h) =>
-                setPageRects((prev) => ({
-                  ...prev,
-                  [page]: { w, h },
-                }))
+                setPageRects((prev) => ({ ...prev, [page]: { w, h } }))
               }
+              onPlace={(pg, xPct, yPct) => {
+                if (!placingType) return;
+
+                const defaults =
+                  placingType === "signature"
+                    ? { wPct: 0.28, hPct: 0.09 }
+                    : placingType === "name"
+                    ? { wPct: 0.28, hPct: 0.07 }
+                    : { wPct: 0.22, hPct: 0.07 };
+
+                setFields((prev) => [
+                  ...prev,
+                  {
+                    id: crypto.randomUUID(),
+                    type: placingType,
+                    page: pg,
+                    xPct,
+                    yPct,
+                    ...defaults,
+                  },
+                ]);
+
+                onPlaced(); // exit placing mode
+              }}
             >
-              <Page pageNumber={pageNumber} width={850} renderTextLayer={false} renderAnnotationLayer={false} />
+              <Page
+                pageNumber={pageNumber}
+                width={850}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
 
               <div className="absolute inset-0 z-10 pointer-events-none">
                 {fields
                   .filter((f) => f.page === pageNumber)
                   .map((field) => {
-                    const rect = pxFromPct(field.page, field.xPct, field.yPct, field.wPct, field.hPct);
+                    const rect = pxFromPct(
+                      field.page,
+                      field.xPct,
+                      field.yPct,
+                      field.wPct,
+                      field.hPct
+                    );
 
                     const colorClasses =
                       field.type === "signature"
@@ -248,32 +327,58 @@ export default function PdfRenderer({
                         bounds="parent"
                         className="pointer-events-auto"
                         onDragStop={(_e, d) => {
-                          const current = pxFromPct(field.page, field.xPct, field.yPct, field.wPct, field.hPct);
-                          const pct = pctFromPx(field.page, d.x, d.y, current.w, current.h);
+                          const current = pxFromPct(
+                            field.page,
+                            field.xPct,
+                            field.yPct,
+                            field.wPct,
+                            field.hPct
+                          );
+                          const pct = pctFromPx(
+                            field.page,
+                            d.x,
+                            d.y,
+                            current.w,
+                            current.h
+                          );
                           if (!pct) return;
-                          setFields((prev) => prev.map((f) => (f.id === field.id ? { ...f, ...pct } : f)));
+                          setFields((prev) =>
+                            prev.map((f) =>
+                              f.id === field.id ? { ...f, ...pct } : f
+                            )
+                          );
                         }}
                         onResizeStop={(_e, _dir, ref, _delta, position) => {
                           const w = ref.offsetWidth;
                           const h = ref.offsetHeight;
-                          const pct = pctFromPx(field.page, position.x, position.y, w, h);
+                          const pct = pctFromPx(
+                            field.page,
+                            position.x,
+                            position.y,
+                            w,
+                            h
+                          );
                           if (!pct) return;
-                          setFields((prev) => prev.map((f) => (f.id === field.id ? { ...f, ...pct } : f)));
+                          setFields((prev) =>
+                            prev.map((f) =>
+                              f.id === field.id ? { ...f, ...pct } : f
+                            )
+                          );
                         }}
                       >
-                        <div
-                          className={[
-                            "w-full h-full border-2 border-dashed flex items-center justify-center rounded-lg shadow-xl bg-white/90 backdrop-blur-sm group relative",
-                            colorClasses,
-                          ].join(" ")}
-                        >
-                          <div className="flex items-center gap-2">
-                            <MousePointer2 size={12} className="opacity-40" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">{field.type}</span>
-                          </div>
+                        <div className="w-full h-full group relative pointer-events-auto">
+                          <img
+                            src={FIELD_PNG[field.type]}
+                            alt={field.type}
+                            draggable={false}
+                            className="w-full h-full object-contain select-none"
+                          />
 
                           <button
-                            onClick={() => removeField(field.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeField(field.id);
+                            }}
                             className="absolute -top-2 -right-2 bg-white text-gray-400 hover:text-red-500 rounded-full shadow-md border p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Remove"
                           >
