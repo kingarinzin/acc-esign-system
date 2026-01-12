@@ -32,6 +32,31 @@ export default function Dashboard() {
   const sigInputRef = useRef<HTMLInputElement>(null);
   const initialsInputRef = useRef<HTMLInputElement>(null);
 
+
+  // Fetch Signatures
+useEffect(() => {
+  async function loadProfile() {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await fetch("/api/user/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSignatureImg(data.signature || null);
+        setInitialsImg(data.initials || null);
+        
+        if (data.signature) localStorage.setItem("userSignature", data.signature);
+      }
+    } catch (err) {
+      console.error("Profile load error:", err);
+    }
+  }
+  loadProfile();
+}, []);
+
   // 1. Fetch Meetings
   useEffect(() => {
     async function fetchMeetings() {

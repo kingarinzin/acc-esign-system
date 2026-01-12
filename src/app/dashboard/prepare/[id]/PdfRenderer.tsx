@@ -86,6 +86,7 @@ export default function PdfRenderer({
   setFields,
   placingType,
   onPlaced,
+  userSignature,
 }: {
   fileUrl: string;
   authToken: string;
@@ -94,6 +95,7 @@ export default function PdfRenderer({
   setFields: React.Dispatch<React.SetStateAction<Field[]>>;
   placingType: FieldType | null;
   onPlaced: () => void;
+  userSignature: string | null;
 }) {
   const [numPages, setNumPages] = useState(0);
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
@@ -368,7 +370,11 @@ export default function PdfRenderer({
                       >
                         <div className="w-full h-full group relative pointer-events-auto">
                           <img
-                            src={FIELD_PNG[field.type]}
+                            src={
+                              field.type === "signature" && userSignature 
+                                ? userSignature 
+                                : FIELD_PNG[field.type]
+                            }
                             alt={field.type}
                             draggable={false}
                             className="w-full h-full object-contain select-none"

@@ -144,6 +144,29 @@ export default function PreparePage() {
     ]);
   };
 
+  // Inside PreparePage.tsx
+const [userSignature, setUserSignature] = useState<string | null>(null);
+
+useEffect(() => {
+  async function loadUserSignature() {
+    // Try to get from localStorage first (fast)
+    const localSig = localStorage.getItem("userSignature");
+    if (localSig) setUserSignature(localSig);
+
+    // Then fallback/sync with API
+    const token = localStorage.getItem("token");
+    const res = await fetch("/api/user/profile", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setUserSignature(data.signature);
+      if (data.signature) localStorage.setItem("userSignature", data.signature);
+    }
+  }
+  loadUserSignature();
+}, []);
+
     useEffect(() => {
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") setPlacingType(null);
@@ -212,7 +235,7 @@ export default function PreparePage() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          ...tokenHeader,
+          ...(tokenHeader as Record<string, string>),
         },
         body: JSON.stringify(payload),
       });
@@ -313,12 +336,23 @@ export default function PreparePage() {
             <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">
               Draggable Fields
             </h3>
-            <div className="space-y-3">
-              <button onClick={() => setPlacingType("signature")}>
+            <div className="flex flex-col space-y-3 w-48">
+              <button 
+                onClick={() => setPlacingType("signature")}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all active:scale-95 shadow-sm"
+              >
                 Signature
               </button>
-              <button onClick={() => setPlacingType("name")}>Full Name</button>
-              <button onClick={() => setPlacingType("date")}>
+              <button 
+                onClick={() => setPlacingType("name")}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all active:scale-95 shadow-sm"
+              >
+                Full Name
+              </button>
+              <button 
+                onClick={() => setPlacingType("date")}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all active:scale-95 shadow-sm"
+              >
                 Date Signed
               </button>
             </div>
@@ -354,6 +388,7 @@ export default function PreparePage() {
         {/* Main Document Viewer */}
         <main className="flex-1 overflow-auto p-12 flex justify-center bg-[#e2e8f0] relative">
           <div className="w-[850px]">
+          
             {!fileUrl ? (
               <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-200 text-gray-600">
                 No PDF filePath found for this meeting/document.
@@ -367,6 +402,7 @@ export default function PreparePage() {
                 setFields={setFields}
                 placingType={placingType}
                 onPlaced={() => setPlacingType(null)}
+                userSignature={userSignature}
               />
             )}
           </div>

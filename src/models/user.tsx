@@ -4,5 +4,7 @@ export interface User {
   _id?: ObjectId;
   email: string;
   password: string;
+  signature?: string;
+  initials?: string;
   createdAt: Date;
 }
