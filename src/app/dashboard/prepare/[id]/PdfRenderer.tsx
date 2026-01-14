@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Rnd } from "react-rnd";
-import { X, MousePointer2, Loader2 } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { Document, Page, pdfjs } from "react-pdf";
+
+// Set worker outside to ensure it only runs once
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 type FieldType = "signature" | "name" | "date";
 
@@ -40,7 +43,7 @@ function PageWrapper({
 
     const update = () => {
       const r = node.getBoundingClientRect();
-      onRect(pageNumber, r.width, r.height);
+      onRect(pageNumber, Math.round(r.width), Math.round(r.height));
     };
 
     update();
@@ -57,7 +60,6 @@ function PageWrapper({
       }`}
       onClick={(e) => {
         if (!placingType) return;
-
         const node = ref.current;
         if (!node) return;
 
@@ -79,7 +81,7 @@ function PageWrapper({
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 export default function PdfRenderer({
-  fileUrl, // /api/meetings/:id/pdf
+  fileUrl,
   authToken,
   isPdf,
   fields,
@@ -87,6 +89,7 @@ export default function PdfRenderer({
   placingType,
   onPlaced,
   userSignature,
+  userName, // <-- Added userName prop
 }: {
   fileUrl: string;
   authToken: string;
@@ -96,16 +99,13 @@ export default function PdfRenderer({
   placingType: FieldType | null;
   onPlaced: () => void;
   userSignature: string | null;
+  userName?: string; // <-- Added optional prop
 }) {
   const [numPages, setNumPages] = useState(0);
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
   const [blobUrl, setBlobUrl] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
-
-  useEffect(() => {
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-  }, []);
 
   const absoluteUrl = useMemo(() => {
     if (!fileUrl) return "";
@@ -114,34 +114,28 @@ export default function PdfRenderer({
       : new URL(fileUrl, window.location.origin).toString();
   }, [fileUrl]);
 
-  // Fetch PDF as blob using POST to avoid IDM interception
+  const handlePageRect = useCallback((page: number, w: number, h: number) => {
+    setPageRects((prev) => {
+      if (prev[page]?.w === w && prev[page]?.h === h) return prev;
+      return { ...prev, [page]: { w, h } };
+    });
+  }, []);
+
   useEffect(() => {
     let alive = true;
     let localBlobUrl = "";
 
     async function run() {
-      if (!absoluteUrl) return;
-      if (!authToken) {
-        setErrMsg("Missing auth token.");
-        return;
-      }
-
+      if (!absoluteUrl || !authToken) return;
       setLoading(true);
-      setErrMsg("");
-
       try {
         const res = await fetch(absoluteUrl, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
+          headers: { Authorization: `Bearer ${authToken}` },
         });
-
         if (!res.ok) throw new Error(`PDF fetch failed (${res.status})`);
-
         const blob = await res.blob();
         localBlobUrl = URL.createObjectURL(blob);
-
         if (alive) setBlobUrl(localBlobUrl);
       } catch (e: any) {
         if (alive) setErrMsg(e?.message || "Failed to fetch PDF");
@@ -151,20 +145,13 @@ export default function PdfRenderer({
     }
 
     run();
-
     return () => {
       alive = false;
       if (localBlobUrl) URL.revokeObjectURL(localBlobUrl);
     };
   }, [absoluteUrl, authToken]);
 
-  const pxFromPct = (
-    page: number,
-    xPct: number,
-    yPct: number,
-    wPct: number,
-    hPct: number
-  ) => {
+  const pxFromPct = (page: number, xPct: number, yPct: number, wPct: number, hPct: number) => {
     const rect = pageRects[page];
     if (!rect) return { x: 0, y: 0, w: 160, h: 48 };
     return {
@@ -175,13 +162,7 @@ export default function PdfRenderer({
     };
   };
 
-  const pctFromPx = (
-    page: number,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ) => {
+  const pctFromPx = (page: number, x: number, y: number, w: number, h: number) => {
     const rect = pageRects[page];
     if (!rect) return null;
     return {
@@ -196,46 +177,10 @@ export default function PdfRenderer({
     setFields((prev) => prev.filter((f) => f.id !== fieldId));
   };
 
-  if (!fileUrl) {
-    return (
-      <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-200 text-gray-600">
-        No file URL found.
-      </div>
-    );
-  }
-
-  if (!isPdf) {
-    return (
-      <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-200 text-gray-600">
-        This document is not a PDF. Prepare mode currently supports PDFs only.
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center gap-3 text-gray-600">
-        <Loader2 className="animate-spin" />
-        Loading PDF...
-      </div>
-    );
-  }
-
-  if (errMsg) {
-    return (
-      <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-200 text-gray-600">
-        {errMsg}
-      </div>
-    );
-  }
-
-  if (!blobUrl) {
-    return (
-      <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-200 text-gray-600">
-        Failed to create blob URL.
-      </div>
-    );
-  }
+  if (!fileUrl) return <div className="p-10 text-gray-600">No file URL found.</div>;
+  if (!isPdf) return <div className="p-10 text-gray-600">Prepare mode supports PDFs only.</div>;
+  if (loading) return <div className="flex items-center gap-3 p-10"><Loader2 className="animate-spin" /> Loading PDF...</div>;
+  if (errMsg) return <div className="p-10 text-red-600">{errMsg}</div>;
 
   const FIELD_PNG: Record<FieldType, string> = {
     signature: "/field-templates/signature.png",
@@ -243,56 +188,40 @@ export default function PdfRenderer({
     date: "/field-templates/date.png",
   };
 
+  // Helper to get formatted current date
+  const todayDate = new Date().toLocaleDateString();
+
   return (
     <Document
       file={blobUrl}
       onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
-      loading={
-        <div className="flex items-center gap-3 text-gray-600">
-          <Loader2 className="animate-spin" />
-          Rendering PDF...
-        </div>
-      }
-      error={
-        <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-200 text-gray-600">
-          Failed to render PDF.
-        </div>
-      }
+      loading={<div className="flex items-center gap-3"><Loader2 className="animate-spin" /> Rendering PDF...</div>}
     >
       {Array.from({ length: numPages }, (_, index) => {
         const pageNumber = index + 1;
-
         return (
           <div key={pageNumber} className="mb-10">
             <PageWrapper
               pageNumber={pageNumber}
               placingType={placingType}
-              onRect={(page, w, h) =>
-                setPageRects((prev) => ({ ...prev, [page]: { w, h } }))
-              }
+              onRect={handlePageRect}
               onPlace={(pg, xPct, yPct) => {
                 if (!placingType) return;
+                const defaults = placingType === "signature" 
+                  ? { wPct: 0.28, hPct: 0.09 } 
+                  : placingType === "name" 
+                  ? { wPct: 0.28, hPct: 0.07 } 
+                  : { wPct: 0.22, hPct: 0.07 };
 
-                const defaults =
-                  placingType === "signature"
-                    ? { wPct: 0.28, hPct: 0.09 }
-                    : placingType === "name"
-                    ? { wPct: 0.28, hPct: 0.07 }
-                    : { wPct: 0.22, hPct: 0.07 };
-
-                setFields((prev) => [
-                  ...prev,
-                  {
-                    id: crypto.randomUUID(),
-                    type: placingType,
-                    page: pg,
-                    xPct,
-                    yPct,
-                    ...defaults,
-                  },
-                ]);
-
-                onPlaced(); // exit placing mode
+                setFields((prev) => [...prev, {
+                  id: crypto.randomUUID(),
+                  type: placingType,
+                  page: pg,
+                  xPct,
+                  yPct,
+                  ...defaults,
+                }]);
+                onPlaced();
               }}
             >
               <Page
@@ -306,20 +235,11 @@ export default function PdfRenderer({
                 {fields
                   .filter((f) => f.page === pageNumber)
                   .map((field) => {
-                    const rect = pxFromPct(
-                      field.page,
-                      field.xPct,
-                      field.yPct,
-                      field.wPct,
-                      field.hPct
-                    );
-
-                    const colorClasses =
-                      field.type === "signature"
-                        ? "border-orange-400 text-orange-700"
-                        : field.type === "name"
-                        ? "border-blue-400 text-blue-700"
-                        : "border-green-400 text-green-700";
+                    const rect = pxFromPct(field.page, field.xPct, field.yPct, field.wPct, field.hPct);
+                    
+                    // Logic to decide content: Image for signature, Text for others
+                    const isSignature = field.type === "signature";
+                    const fieldText = field.type === "name" ? (userName || "Full Name") : todayDate;
 
                     return (
                       <Rnd
@@ -329,64 +249,36 @@ export default function PdfRenderer({
                         bounds="parent"
                         className="pointer-events-auto"
                         onDragStop={(_e, d) => {
-                          const current = pxFromPct(
-                            field.page,
-                            field.xPct,
-                            field.yPct,
-                            field.wPct,
-                            field.hPct
-                          );
-                          const pct = pctFromPx(
-                            field.page,
-                            d.x,
-                            d.y,
-                            current.w,
-                            current.h
-                          );
-                          if (!pct) return;
-                          setFields((prev) =>
-                            prev.map((f) =>
-                              f.id === field.id ? { ...f, ...pct } : f
-                            )
-                          );
+                          const pct = pctFromPx(field.page, d.x, d.y, rect.w, rect.h);
+                          if (pct) setFields((prev) => prev.map((f) => f.id === field.id ? { ...f, ...pct } : f));
                         }}
                         onResizeStop={(_e, _dir, ref, _delta, position) => {
-                          const w = ref.offsetWidth;
-                          const h = ref.offsetHeight;
-                          const pct = pctFromPx(
-                            field.page,
-                            position.x,
-                            position.y,
-                            w,
-                            h
-                          );
-                          if (!pct) return;
-                          setFields((prev) =>
-                            prev.map((f) =>
-                              f.id === field.id ? { ...f, ...pct } : f
-                            )
-                          );
+                          const pct = pctFromPx(field.page, position.x, position.y, ref.offsetWidth, ref.offsetHeight);
+                          if (pct) setFields((prev) => prev.map((f) => f.id === field.id ? { ...f, ...pct } : f));
                         }}
                       >
-                        <div className="w-full h-full group relative pointer-events-auto">
-                          <img
-                            src={
-                              field.type === "signature" && userSignature 
-                                ? userSignature 
-                                : FIELD_PNG[field.type]
-                            }
-                            alt={field.type}
-                            draggable={false}
-                            className="w-full h-full object-contain select-none"
-                          />
-
+                        <div className="w-full h-full group relative flex items-center justify-center border border-transparent hover:border-blue-400 rounded transition-colors bg-white/10">
+                          {isSignature ? (
+                            <img
+                              src={userSignature ? userSignature : FIELD_PNG.signature}
+                              alt="signature"
+                              className="w-full h-full object-contain select-none"
+                              draggable={false}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center px-2">
+                                <span 
+                                    className="text-gray-900 font-medium whitespace-nowrap overflow-hidden select-none"
+                                    style={{ fontSize: `calc(${rect.h}px * 0.4)` }}
+                                >
+                                    {fieldText}
+                                </span>
+                            </div>
+                          )}
+                          
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeField(field.id);
-                            }}
-                            className="absolute -top-2 -right-2 bg-white text-gray-400 hover:text-red-500 rounded-full shadow-md border p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Remove"
+                            onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
+                            className="absolute -top-2 -right-2 bg-white text-gray-400 hover:text-red-500 rounded-full shadow-md border p-1 opacity-0 group-hover:opacity-100 transition-opacity z-20"
                           >
                             <X size={12} />
                           </button>

@@ -387,7 +387,7 @@ useEffect(() => {
 
         {/* Main Document Viewer */}
         <main className="flex-1 overflow-auto p-12 flex justify-center bg-[#e2e8f0] relative">
-          <div className="w-[850px]">
+          <div className="w-212.5">
           
             {!fileUrl ? (
               <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-200 text-gray-600">
