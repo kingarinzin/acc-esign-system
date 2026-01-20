@@ -18,6 +18,7 @@ export interface Field {
   yPct: number;
   wPct: number;
   hPct: number;
+  recipientName?: string; // for name fields only
 }
 
 type PageRect = { w: number; h: number };
@@ -26,16 +27,17 @@ function PageWrapper({
   pageNumber,
   children,
   onRect,
-  placingType,
-  onPlace,
+  draggingFieldType,
+  onDrop,
 }: {
   pageNumber: number;
   children: React.ReactNode;
   onRect: (page: number, w: number, h: number) => void;
-  placingType: FieldType | null;
-  onPlace: (page: number, xPct: number, yPct: number) => void;
+  draggingFieldType: FieldType | null;
+  onDrop: (page: number, xPct: number, yPct: number) => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
     const node = ref.current;
@@ -55,11 +57,20 @@ function PageWrapper({
   return (
     <div
       ref={ref}
-      className={`relative bg-white shadow-2xl border border-gray-300 ${
-        placingType ? "cursor-crosshair" : ""
+      className={`relative bg-white shadow-2xl border border-gray-300 transition-all ${
+        isDragOver ? "ring-4 ring-blue-400 ring-opacity-50" : ""
       }`}
-      onClick={(e) => {
-        if (!placingType) return;
+      onDragOver={(e) => {
+        if (!draggingFieldType) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setIsDragOver(true);
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        if (!draggingFieldType) return;
         const node = ref.current;
         if (!node) return;
 
@@ -70,7 +81,7 @@ function PageWrapper({
         const xPct = Math.min(1, Math.max(0, x / r.width));
         const yPct = Math.min(1, Math.max(0, y / r.height));
 
-        onPlace(pageNumber, xPct, yPct);
+        onDrop(pageNumber, xPct, yPct);
       }}
     >
       {children}
@@ -86,26 +97,28 @@ export default function PdfRenderer({
   isPdf,
   fields,
   setFields,
-  placingType,
-  onPlaced,
+  draggingFieldType,
   userSignature,
-  userName, // <-- Added userName prop
+  userName,
+  onNumPagesChange,
 }: {
   fileUrl: string;
   authToken: string;
   isPdf: boolean;
   fields: Field[];
   setFields: React.Dispatch<React.SetStateAction<Field[]>>;
-  placingType: FieldType | null;
-  onPlaced: () => void;
+  draggingFieldType: FieldType | null;
   userSignature: string | null;
-  userName?: string; // <-- Added optional prop
+  userName?: string;
+  onNumPagesChange?: (numPages: number) => void;
 }) {
   const [numPages, setNumPages] = useState(0);
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
   const [blobUrl, setBlobUrl] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState("");
 
   const absoluteUrl = useMemo(() => {
     if (!fileUrl) return "";
@@ -194,39 +207,46 @@ export default function PdfRenderer({
   return (
     <Document
       file={blobUrl}
-      onLoadSuccess={(pdf) => setNumPages(pdf.numPages)}
+      onLoadSuccess={(pdf) => {
+        setNumPages(pdf.numPages);
+        onNumPagesChange?.(pdf.numPages);
+      }}
       loading={<div className="flex items-center gap-3"><Loader2 className="animate-spin" /> Rendering PDF...</div>}
     >
       {Array.from({ length: numPages }, (_, index) => {
         const pageNumber = index + 1;
         return (
-          <div key={pageNumber} className="mb-10">
+          <div key={pageNumber} id={`pdf-page-${pageNumber}`} className="mb-6">
             <PageWrapper
               pageNumber={pageNumber}
-              placingType={placingType}
+              draggingFieldType={draggingFieldType}
               onRect={handlePageRect}
-              onPlace={(pg, xPct, yPct) => {
-                if (!placingType) return;
-                const defaults = placingType === "signature" 
+              onDrop={(pg, xPct, yPct) => {
+                if (!draggingFieldType) return;
+                const defaults = draggingFieldType === "signature" 
                   ? { wPct: 0.28, hPct: 0.09 } 
-                  : placingType === "name" 
+                  : draggingFieldType === "name" 
                   ? { wPct: 0.28, hPct: 0.07 } 
                   : { wPct: 0.22, hPct: 0.07 };
 
-                setFields((prev) => [...prev, {
+                const newField: Field = {
                   id: crypto.randomUUID(),
-                  type: placingType,
+                  type: draggingFieldType,
                   page: pg,
                   xPct,
                   yPct,
                   ...defaults,
-                }]);
-                onPlaced();
+                  recipientName: draggingFieldType === "name" ? "Full Name" : 
+                                 draggingFieldType === "signature" ? "Signature" :
+                                 "Date",
+                };
+
+                setFields((prev) => [...prev, newField]);
               }}
             >
               <Page
                 pageNumber={pageNumber}
-                width={850}
+                width={700}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
               />
@@ -239,7 +259,10 @@ export default function PdfRenderer({
                     
                     // Logic to decide content: Image for signature, Text for others
                     const isSignature = field.type === "signature";
-                    const fieldText = field.type === "name" ? (userName || "Full Name") : todayDate;
+                    const isNameField = field.type === "name";
+                    const fieldText = field.type === "name" 
+                      ? (field.recipientName || "Full Name") 
+                      : todayDate;
 
                     return (
                       <Rnd
@@ -257,7 +280,7 @@ export default function PdfRenderer({
                           if (pct) setFields((prev) => prev.map((f) => f.id === field.id ? { ...f, ...pct } : f));
                         }}
                       >
-                        <div className="w-full h-full group relative flex items-center justify-center border border-transparent hover:border-blue-400 rounded transition-colors bg-white/10">
+                        <div className="w-full h-full group relative flex items-center justify-center border-2 border-dashed border-gray-400 hover:border-blue-500 rounded transition-colors bg-white/50">
                           {isSignature ? (
                             <img
                               src={userSignature ? userSignature : FIELD_PNG.signature}
@@ -267,12 +290,45 @@ export default function PdfRenderer({
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center px-2">
+                              {isNameField && editingFieldId === field.id ? (
+                                <input
+                                  type="text"
+                                  value={editingLabel}
+                                  onChange={(e) => setEditingLabel(e.target.value)}
+                                  onBlur={() => {
+                                    setFields((prev) => prev.map((f) => 
+                                      f.id === field.id ? { ...f, recipientName: editingLabel || "Full Name" } : f
+                                    ));
+                                    setEditingFieldId(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      setFields((prev) => prev.map((f) => 
+                                        f.id === field.id ? { ...f, recipientName: editingLabel || "Full Name" } : f
+                                      ));
+                                      setEditingFieldId(null);
+                                    }
+                                  }}
+                                  autoFocus
+                                  className="w-full h-full text-center bg-white border-2 border-blue-500 rounded px-2 text-gray-900 font-medium outline-none"
+                                  style={{ fontSize: `calc(${rect.h}px * 0.35)` }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : (
                                 <span 
-                                    className="text-gray-900 font-medium whitespace-nowrap overflow-hidden select-none"
-                                    style={{ fontSize: `calc(${rect.h}px * 0.4)` }}
+                                  className="text-gray-900 font-medium whitespace-nowrap overflow-hidden select-none"
+                                  style={{ fontSize: `calc(${rect.h}px * 0.35)` }}
+                                  onDoubleClick={(e) => {
+                                    if (isNameField) {
+                                      e.stopPropagation();
+                                      setEditingFieldId(field.id);
+                                      setEditingLabel(field.recipientName || "Full Name");
+                                    }
+                                  }}
                                 >
-                                    {fieldText}
+                                  {fieldText}
                                 </span>
+                              )}
                             </div>
                           )}
                           

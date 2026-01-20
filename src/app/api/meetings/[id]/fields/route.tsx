@@ -60,6 +60,7 @@ function normalizeField(raw: any): Field | null {
     yPct: clamp01(yPct),
     wPct: clamp01(wPct),
     hPct: clamp01(hPct),
+    recipientName: typeof raw.recipientName === 'string' ? raw.recipientName : undefined,
   };
 }
 

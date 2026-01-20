@@ -1,13 +1,63 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, FileText, Upload, CheckCircle2 } from "lucide-react";
+import { Document, Page, pdfjs } from "react-pdf";
+import { X, FileText, Upload, CheckCircle2, Loader2, ArrowLeft } from "lucide-react";
+
+// Initialize PDF Worker
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface Participant {
   name: string;
   email: string;
   role: "Signer" | "CC";
+}
+
+/**
+ * Internal Thumbnail Component to handle Local PDF Preview
+ */
+function DocumentThumbnail({ file }: { file: File | null }) {
+  const [source, setSource] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (file && file.type === "application/pdf") {
+      const url = URL.createObjectURL(file);
+      setSource(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setSource(null);
+    }
+  }, [file]);
+
+  if (!file) return <Upload className="w-8 h-8 text-gray-300 mx-auto mb-2" />;
+  
+  // Fallback for non-PDF files (like .docx) since react-pdf only renders PDFs
+  if (file.type !== "application/pdf") {
+    return (
+      <div className="text-center p-4">
+        <FileText className="w-12 h-12 text-indigo-500 mx-auto mb-2" />
+        <p className="text-[10px] font-bold text-indigo-900 truncate w-32">{file.name}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-white">
+      <Document
+        file={source}
+        loading={<Loader2 className="animate-spin text-indigo-500" size={24} />}
+        error={<FileText className="w-12 h-12 text-red-200" />}
+      >
+        <Page 
+          pageNumber={1} 
+          width={180} 
+          renderTextLayer={false} 
+          renderAnnotationLayer={false} 
+        />
+      </Document>
+    </div>
+  );
 }
 
 export default function NewMeetingPage() {
@@ -18,6 +68,7 @@ export default function NewMeetingPage() {
   const [email, setEmail] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -68,16 +119,19 @@ export default function NewMeetingPage() {
 
   const handleSubmit = async (prepare: boolean) => {
     setMessage("");
+    setIsSubmitting(true);
 
     const token = localStorage.getItem("token");
     if (!token) {
       setMessage("Missing token. Please log in again.");
+      setIsSubmitting(false);
       return;
     }
 
     const error = validateBeforeSubmit();
     if (error) {
       setMessage(error);
+      setIsSubmitting(false);
       return;
     }
 
@@ -111,91 +165,149 @@ export default function NewMeetingPage() {
       }
     } catch (err) {
       setMessage("Server error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] text-[#2d3748] pb-20">
-      <header className="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-        <h1 className="text-xl font-bold text-indigo-900">New Document</h1>
+      <header className="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.back()} className="cursor-pointer text-gray-400 hover:text-indigo-600 transition">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold text-indigo-900">New Document</h1>
+        </div>
         <div className="flex items-center gap-3">
           <button
+            disabled={isSubmitting}
             onClick={() => handleSubmit(false)}
-            className="px-5 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-full hover:bg-indigo-50 transition"
+            className="cursor-pointer px-5 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-full hover:bg-indigo-50 transition disabled:opacity-50"
           >
-            Save Draft
+            {isSubmitting ? "Saving..." : "Save Draft"}
           </button>
           <button
+            disabled={isSubmitting}
             onClick={() => handleSubmit(true)}
-            className="px-6 py-2 text-sm font-medium text-white bg-blue-700 rounded-full hover:bg-blue-800 transition shadow-md"
+            className="cursor-pointer px-6 py-2 text-sm font-medium text-white bg-blue-700 rounded-full hover:bg-blue-800 transition shadow-md flex items-center gap-2 disabled:opacity-50"
           >
+            {isSubmitting && <Loader2 className="animate-spin" size={16} />}
             Prepare
           </button>
         </div>
       </header>
 
       <div className="max-w-5xl mx-auto p-6 space-y-6">
-        {/* File Upload */}
+        {/* File Upload with Preview */}
         <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <div className="flex gap-4">
-            <div className="w-48 h-64 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center bg-gray-50 relative">
+          <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+            <Upload className="w-4 h-4 text-indigo-600" />
+            Document Upload
+          </h2>
+          <div className="flex gap-6">
+            {/* Preview Area */}
+            <div className="w-52 h-72 border-2 border-gray-200 rounded-xl flex flex-col items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 relative group overflow-hidden shadow-lg">
               {file ? (
-                <div className="text-center p-4">
-                  <FileText className="w-12 h-12 text-indigo-500 mx-auto mb-2" />
-                  <p className="text-xs font-medium truncate w-40">{file.name}</p>
-                </div>
+                <>
+                  <div className="w-full h-full flex items-center justify-center p-2">
+                    <DocumentThumbnail file={file} />
+                  </div>
+                  
+                  {/* File Info Overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent p-3 text-white">
+                    <p className="text-[10px] font-bold truncate">{file.name}</p>
+                    <p className="text-[9px] text-white/70">{(file.size / 1024).toFixed(0)} KB</p>
+                  </div>
+
+                  {/* Remove Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFile(null);
+                    }}
+                    className="absolute top-2 right-2 bg-white text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 shadow-lg transition-all opacity-0 group-hover:opacity-100 z-30"
+                  >
+                    <X size={16} />
+                  </button>
+                </>
               ) : (
-                <div className="text-center">
-                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-xs text-gray-500">Drop files here</p>
+                <div className="flex flex-col items-center justify-center text-center p-4">
+                  <Upload className="w-12 h-12 text-gray-300 mb-3" />
+                  <p className="text-xs text-gray-400 font-medium">No file selected</p>
                 </div>
               )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-              />
             </div>
 
-            <div className="flex-1 flex flex-col justify-center items-center border-2 border-dashed border-gray-100 rounded-lg">
+            {/* Hidden File Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+
+            {/* Upload Instructions */}
+            <div className="flex-1 flex flex-col justify-center items-center border-2 border-dashed border-indigo-200 rounded-xl bg-indigo-50/30 p-8 text-center">
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+                <FileText className="w-8 h-8 text-indigo-600" />
+              </div>
+              
+              <h3 className="text-sm font-bold text-gray-700 mb-2">
+                {file ? "Document Ready" : "Upload Your Document"}
+              </h3>
+              
+              <p className="text-xs text-gray-500 mb-4 max-w-xs">
+                {file 
+                  ? "Your document is ready. You can change it or proceed to prepare."
+                  : "Click below or drag and drop a PDF file to get started."
+                }
+              </p>
+
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-white border px-6 py-2 rounded-full text-blue-600 font-semibold shadow-sm hover:bg-gray-50"
+                className="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
               >
-                Choose Files
+                <Upload size={16} />
+                {file ? "Change Document" : "Choose File"}
               </button>
-              <p className="text-xs text-gray-400 mt-2">Supported formats: .pdf, .doc, .docx</p>
+              
+              <p className="text-[10px] text-gray-400 mt-4 uppercase font-bold tracking-widest">
+                Supported: PDF files only
+              </p>
+              
+              {file && (
+                <div className="mt-4 px-4 py-1.5 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 flex items-center gap-2">
+                  <CheckCircle2 size={14} />
+                  Ready to Upload
+                </div>
+              )}
             </div>
           </div>
         </section>
 
         {/* Signers */}
-        <section className="bg-[#edf2f7] rounded-t-xl">
+        <section className="bg-[#edf2f7] rounded-xl overflow-hidden border shadow-sm">
           <div className="px-6 py-3 border-b flex justify-between items-center">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-gray-500" /> Signers & CCs
             </h3>
-            <label className="text-xs flex items-center gap-2 text-gray-600">
-              <input type="checkbox" className="rounded" /> Signing Order
-            </label>
           </div>
 
-          <div className="p-4 space-y-3 bg-white border-x">
+          <div className="p-4 space-y-3 bg-white">
             {participants.map((p) => (
-              <div key={p.email} className="flex items-center gap-3 p-2 border rounded-lg bg-white">
+              <div key={p.email} className="flex items-center gap-3 p-2 border rounded-lg bg-white shadow-sm group">
                 <div className="flex-1 flex gap-2">
-                  <input readOnly value={p.name} className="flex-1 text-sm p-2 border rounded bg-gray-50" />
-                  <input readOnly value={p.email} className="flex-[1.2] text-sm p-2 border rounded bg-gray-50" />
+                  <input readOnly value={p.name} className="flex-1 text-sm p-2 border rounded bg-gray-50 text-gray-600" />
+                  <input readOnly value={p.email} className="flex-[1.2] text-sm p-2 border rounded bg-gray-50 text-gray-600" />
                 </div>
 
                 <select
                   value={p.role}
                   onChange={(e) => updateRole(p.email, e.target.value as "Signer" | "CC")}
-                  className="text-sm p-2 border rounded bg-white outline-none"
+                  className="cursor-pointer text-xs p-2 border rounded bg-white outline-none font-medium"
                 >
                   <option value="Signer">Signer</option>
                   <option value="CC">CC</option>
@@ -203,7 +315,7 @@ export default function NewMeetingPage() {
 
                 <button
                   onClick={() => removeParticipant(p.email)}
-                  className="p-2 text-gray-400 hover:text-red-500"
+                  className="cursor-pointer p-2 text-gray-400 hover:text-red-500 transition"
                   type="button"
                 >
                   <X className="w-4 h-4" />
@@ -212,23 +324,23 @@ export default function NewMeetingPage() {
             ))}
           </div>
 
-          <div className="p-4 bg-white border-x border-b rounded-b-xl flex gap-3">
+          <div className="p-4 bg-gray-50 border-t flex gap-3">
             <input
               placeholder="Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="flex-1 text-sm p-2 border rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none"
+              className="flex-1 text-sm p-2 border rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none transition"
             />
             <input
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 text-sm p-2 border rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none"
+              className="flex-1 text-sm p-2 border rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none transition"
             />
             <button
               onClick={addParticipant}
               type="button"
-              className="px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-bold rounded-lg border border-indigo-200 hover:bg-indigo-100 transition"
+              className="cursor-pointer px-6 py-2 bg-white text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 hover:bg-indigo-50 transition shadow-sm"
             >
               Add
             </button>
@@ -236,7 +348,7 @@ export default function NewMeetingPage() {
         </section>
 
         {/* Title & Message */}
-        <section className="bg-[#edf2f7] rounded-xl overflow-hidden border">
+        <section className="bg-[#edf2f7] rounded-xl overflow-hidden border shadow-sm">
           <div className="px-6 py-3 border-b">
             <h3 className="text-sm font-semibold flex items-center gap-2 text-gray-700">
               <FileText className="w-4 h-4" /> Title & Message
@@ -251,7 +363,8 @@ export default function NewMeetingPage() {
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full p-2 border rounded bg-[#f1f5f9] text-sm outline-none focus:border-indigo-300"
+                placeholder="e.g. Service Agreement"
+                className="w-full p-3 border rounded-xl bg-[#f8fafc] text-sm outline-none focus:ring-2 focus:ring-indigo-100 transition"
               />
             </div>
 
@@ -263,14 +376,15 @@ export default function NewMeetingPage() {
                 rows={4}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-2 border rounded bg-white text-sm outline-none focus:border-indigo-300"
+                placeholder="Please sign this document..."
+                className="w-full p-3 border rounded-xl bg-white text-sm outline-none focus:ring-2 focus:ring-indigo-100 transition"
               />
             </div>
           </div>
         </section>
 
         {message && (
-          <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm text-center font-medium">
+          <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm text-center font-medium">
             {message}
           </div>
         )}

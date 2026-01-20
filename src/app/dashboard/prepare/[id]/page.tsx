@@ -4,6 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 const PdfRenderer = dynamic(() => import("./PdfRenderer"), { ssr: false });
+import { Document, Page, pdfjs } from "react-pdf";
+
+// Set worker for thumbnails
+if (typeof window !== "undefined") {
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+}
 
 import {
   Type,
@@ -26,6 +32,7 @@ interface Field {
   yPct: number; // 0..1
   wPct: number; // 0..1
   hPct: number; // 0..1
+  recipientName?: string; // for name fields only
 }
 
 type PageRect = { w: number; h: number };
@@ -79,10 +86,12 @@ export default function PreparePage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [numPages, setNumPages] = useState<number>(0);
+  const [thumbnailBlobUrl, setThumbnailBlobUrl] = useState<string>("");
 
   // Track each page container size for px conversion
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
   const [placingType, setPlacingType] = useState<FieldType | null>(null);
+  const [draggingFieldType, setDraggingFieldType] = useState<FieldType | null>(null);
 
   // --- Fetch meeting ---
   useEffect(() => {
@@ -125,6 +134,37 @@ export default function PreparePage() {
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
+
+  // Fetch PDF for thumbnails
+  useEffect(() => {
+    let alive = true;
+    let localBlobUrl = "";
+
+    async function fetchPdfForThumbnails() {
+      if (!id) return;
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const res = await fetch(`/api/meetings/${id}/pdf`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        localBlobUrl = URL.createObjectURL(blob);
+        if (alive) setThumbnailBlobUrl(localBlobUrl);
+      } catch (err) {
+        console.error("Error fetching PDF for thumbnails:", err);
+      }
+    }
+
+    fetchPdfForThumbnails();
+    return () => {
+      alive = false;
+      if (localBlobUrl) URL.revokeObjectURL(localBlobUrl);
+    };
+  }, [id]);
 
   const addField = (type: FieldType) => {
     // Default: place on page 1 (or first page)
@@ -258,11 +298,27 @@ useEffect(() => {
     const ok = await saveFields();
     if (!ok) return;
 
-    // OPTIONAL: if you have a send endpoint, call it here.
-    // await fetch(`/api/meetings/${id}/send`, { method: "POST", headers: tokenHeader });
+    setIsSaving(true);
+    try {
+      // Send the document to recipients
+      const res = await fetch(`/api/meetings/${id}/send`, {
+        method: "POST",
+        headers: tokenHeader as Record<string, string>,
+      });
 
-    alert("Document prepared and saved!");
-    router.push("/dashboard");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to send document");
+      }
+
+      const data = await res.json();
+      alert(`Document sent successfully! First recipient: ${data.sentTo}`);
+      router.push("/dashboard");
+    } catch (err: any) {
+      alert(err.message || "Failed to send document");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (loading) {
@@ -330,67 +386,50 @@ useEffect(() => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Toolbar */}
-        <aside className="w-72 bg-white border-r p-6 flex flex-col gap-6 z-40 shadow-xl">
-          <div>
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">
-              Draggable Fields
-            </h3>
-            <div className="flex flex-col space-y-3 w-48">
-              <button 
-                onClick={() => setPlacingType("signature")}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all active:scale-95 shadow-sm"
-              >
-                Signature
-              </button>
-              <button 
-                onClick={() => setPlacingType("name")}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all active:scale-95 shadow-sm"
-              >
-                Full Name
-              </button>
-              <button 
-                onClick={() => setPlacingType("date")}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all active:scale-95 shadow-sm"
-              >
-                Date Signed
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-auto border-t pt-6">
-            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest mb-4">
-              Recipients
-            </p>
-            <div className="space-y-3">
-              {meeting?.participants?.map((p: any, i: number) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100"
-                >
-                  <div className="w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm">
-                    {p?.name?.[0]?.toUpperCase?.() || "?"}
+        {/* Left: Page Thumbnails */}
+        <aside className="w-48 bg-white border-r p-3 overflow-y-auto z-40 shadow-sm">
+          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+            Pages
+          </h3>
+          {thumbnailBlobUrl ? (
+            <Document file={thumbnailBlobUrl}>
+              <div className="space-y-2">
+                {Array.from({ length: numPages }, (_, i) => (
+                  <div
+                    key={i + 1}
+                    className="border border-gray-300 rounded p-2 bg-gray-50 hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition"
+                    onClick={() => {
+                      const pageElement = document.getElementById(`pdf-page-${i + 1}`);
+                      if (pageElement) {
+                        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }}
+                  >
+                    <div className="text-[10px] font-semibold text-gray-600 mb-1">
+                      Page {i + 1}
+                    </div>
+                    <div className="w-full bg-white border border-gray-200 rounded overflow-hidden">
+                      <Page
+                        pageNumber={i + 1}
+                        width={140}
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                      />
+                    </div>
                   </div>
-                  <div className="overflow-hidden">
-                    <p className="text-xs font-bold text-gray-800 truncate">
-                      {p.name}
-                    </p>
-                    <p className="text-[10px] text-gray-500 truncate">
-                      {p.email}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </Document>
+          ) : (
+            <div className="text-[10px] text-gray-400 text-center py-4">Loading...</div>
+          )}
         </aside>
 
-        {/* Main Document Viewer */}
-        <main className="flex-1 overflow-auto p-12 flex justify-center bg-[#e2e8f0] relative">
-          <div className="w-212.5">
-          
+        {/* Center: Main Document Viewer */}
+        <main className="flex-1 overflow-auto p-6 flex justify-center bg-[#e2e8f0] relative">
+          <div className="max-w-3xl w-full">
             {!fileUrl ? (
-              <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-200 text-gray-600">
+              <div className="bg-white p-8 rounded-xl shadow-md border border-gray-200 text-gray-600">
                 No PDF filePath found for this meeting/document.
               </div>
             ) : (
@@ -400,13 +439,83 @@ useEffect(() => {
                 isPdf={isPdf}
                 fields={fields}
                 setFields={setFields}
-                placingType={placingType}
-                onPlaced={() => setPlacingType(null)}
+                draggingFieldType={draggingFieldType}
                 userSignature={userSignature}
+                onNumPagesChange={setNumPages}
               />
             )}
           </div>
         </main>
+
+        {/* Right: Draggable Fields */}
+        <aside className="w-64 bg-white border-l p-4 flex flex-col gap-4 z-40 shadow-sm overflow-y-auto">
+          <div>
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+              Draggable Fields
+            </h3>
+            <div className="flex flex-col space-y-2">
+              <div
+                draggable
+                onDragStart={(e) => {
+                  setDraggingFieldType("signature");
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
+                onDragEnd={() => setDraggingFieldType(null)}
+                className="px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all cursor-move shadow-sm"
+              >
+                📝 Signature
+              </div>
+              <div
+                draggable
+                onDragStart={(e) => {
+                  setDraggingFieldType("name");
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
+                onDragEnd={() => setDraggingFieldType(null)}
+                className="px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all cursor-move shadow-sm"
+              >
+                👤 Full Name
+              </div>
+              <div
+                draggable
+                onDragStart={(e) => {
+                  setDraggingFieldType("date");
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
+                onDragEnd={() => setDraggingFieldType(null)}
+                className="px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 transition-all cursor-move shadow-sm"
+              >
+                📅 Date Signed
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-3">
+              Recipients
+            </p>
+            <div className="space-y-2">
+              {meeting?.participants?.map((p: any, i: number) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100"
+                >
+                  <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[9px] font-bold shadow-sm">
+                    {p?.name?.[0]?.toUpperCase?.() || "?"}
+                  </div>
+                  <div className="overflow-hidden flex-1">
+                    <p className="text-[10px] font-bold text-gray-800 truncate">
+                      {p.name}
+                    </p>
+                    <p className="text-[9px] text-gray-500 truncate">
+                      {p.email}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

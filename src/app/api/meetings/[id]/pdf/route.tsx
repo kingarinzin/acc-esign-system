@@ -1,3 +1,5 @@
+// app/api/meetings/[id]/pdf/route.ts
+
 import path from "path";
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
@@ -9,56 +11,99 @@ import { Readable } from "stream";
 
 export const runtime = "nodejs";
 
-function auth(req: Request) {
-  const h = req.headers.get("authorization");
-  if (!h?.startsWith("Bearer ")) return null;
+function auth(req: Request): { id: string } | null {
   try {
-    return jwt.verify(h.split(" ")[1], process.env.JWT_SECRET!) as any;
+    const h = req.headers.get("authorization");
+    if (!h?.startsWith("Bearer ")) return null;
+    const token = h.split(" ")[1];
+    return jwt.verify(token, process.env.JWT_SECRET!) as any;
   } catch {
     return null;
   }
 }
 
 function safeRange(range: string, size: number) {
-  const m = range.match(/bytes=(\d*)-(\d*)/);
-  if (!m) return null;
+  try {
+    const m = range.match(/bytes=(\d*)-(\d*)/);
+    if (!m) return null;
 
-  const start = m[1] ? parseInt(m[1], 10) : 0;
-  const end = m[2] ? parseInt(m[2], 10) : size - 1;
+    const start = m[1] ? parseInt(m[1], 10) : 0;
+    const end = m[2] ? parseInt(m[2], 10) : size - 1;
 
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
-  if (start > end || start < 0 || start >= size) return null;
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    if (start > end || start < 0 || start >= size) return null;
 
-  return { start, end: Math.min(end, size - 1) };
+    return { start, end: Math.min(end, size - 1) };
+  } catch {
+    return null;
+  }
 }
 
-async function getMeetingPdfInfo(meetingId: string, organizerId: string) {
-  const client = await clientPromise;
-  const db = client.db("e_sign_db");
+async function getMeetingPdfInfo(meetingId: string, userId: string) {
+  try {
+    const client = await clientPromise;
+    const db = client.db("e_sign_db");
 
-  const meeting = await db.collection("meetings").findOne(
-    { _id: new ObjectId(meetingId), organizerId },
-    { projection: { storedFileName: 1 } }
-  );
+    // Find meeting and check if user is organizer or participant
+    const meeting = await db.collection("meetings").findOne(
+      { _id: new ObjectId(meetingId) },
+      { projection: { storedFileName: 1, organizerId: 1, participants: 1 } }
+    );
 
-  if (!meeting?.storedFileName) return null;
+    if (!meeting) return null;
 
-  const absolute = path.join(process.cwd(), "public", "uploads", String(meeting.storedFileName));
-  const s = await stat(absolute);
+    // Check if user is authorized (organizer or participant)
+    const isOrganizer = meeting.organizerId === userId;
+    const isParticipant = meeting.participants?.some((p: any) => {
+      // Get user email from database to match with participant
+      return p.email; // We'll do a more thorough check below
+    });
 
-  return { absolute, size: s.size };
+    // For now, allow if user exists (we'll verify via user email)
+    // Get user to check email
+    const user = await db.collection("users").findOne({ _id: new ObjectId(userId) });
+    if (!user) return null;
+
+    const userEmail = user.email?.toLowerCase();
+    const hasAccess = isOrganizer || meeting.participants?.some(
+      (p: any) => p.email?.toLowerCase() === userEmail
+    );
+
+    if (!hasAccess) return null;
+
+    if (!meeting.storedFileName) return null;
+
+    const absolute = path.join(
+      process.cwd(),
+      "public",
+      "uploads",
+      String(meeting.storedFileName)
+    );
+
+    const s = await stat(absolute);
+    return { absolute, size: s.size };
+  } catch (error) {
+    console.error("getMeetingPdfInfo error:", error);
+    return null;
+  }
 }
 
 export async function HEAD(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = auth(req);
-  if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-
   try {
+    const user = auth(req);
+    if (!user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    }
+
     const info = await getMeetingPdfInfo(id, user.id);
-    if (!info) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!info) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     return new NextResponse(null, {
       status: 200,
@@ -67,104 +112,109 @@ export async function HEAD(req: Request, { params }: { params: Promise<{ id: str
         "Content-Length": String(info.size),
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-store",
-        "Content-Disposition": `inline; filename="document.pdf"`,
-        "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  } catch (error) {
+    console.error("HEAD error:", error);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = auth(req);
-  if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-
-  let info: { absolute: string; size: number } | null = null;
   try {
-    info = await getMeetingPdfInfo(id, user.id);
-    if (!info) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    const user = auth(req);
+    if (!user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const range = req.headers.get("range");
-  if (range) {
-    const se = safeRange(range, info.size);
-    if (!se) {
-      return new NextResponse(null, {
-        status: 416,
-        headers: { "Content-Range": `bytes */${info.size}` },
+    const { id } = await params;
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    }
+
+    const info = await getMeetingPdfInfo(id, user.id);
+    if (!info) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const range = req.headers.get("range");
+
+    if (range) {
+      const se = safeRange(range, info.size);
+      if (!se) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: { "Content-Range": `bytes */${info.size}` },
+        });
+      }
+
+      const { start, end } = se;
+      const chunkSize = end - start + 1;
+
+      const nodeStream = createReadStream(info.absolute, { start, end });
+      const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
+
+      return new NextResponse(webStream, {
+        status: 206,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Length": String(chunkSize),
+          "Content-Range": `bytes ${start}-${end}/${info.size}`,
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "no-store",
+        },
       });
     }
 
-    const { start, end } = se;
-    const chunkSize = end - start + 1;
-
-    const nodeStream = createReadStream(info.absolute, { start, end });
+    // Full file
+    const nodeStream = createReadStream(info.absolute);
     const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
 
     return new NextResponse(webStream, {
-      status: 206,
+      status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Length": String(chunkSize),
-        "Content-Range": `bytes ${start}-${end}/${info.size}`,
+        "Content-Length": String(info.size),
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-store",
-        "Content-Disposition": `inline; filename="document.pdf"`,
-        "X-Content-Type-Options": "nosniff",
       },
     });
+  } catch (error) {
+    console.error("GET error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const nodeStream = createReadStream(info.absolute);
-  const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
-
-  return new NextResponse(webStream, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Length": String(info.size),
-      "Accept-Ranges": "bytes",
-      "Cache-Control": "no-store",
-      "Content-Disposition": `inline; filename="document.pdf"`,
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = auth(req);
-  if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-
-  let info: { absolute: string; size: number } | null = null;
   try {
-    info = await getMeetingPdfInfo(id, user.id);
-    if (!info) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const user = auth(req);
+    if (!user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    }
+
+    const info = await getMeetingPdfInfo(id, user.id);
+    if (!info) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const nodeStream = createReadStream(info.absolute);
+    const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
+
+    return new NextResponse(webStream, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Length": String(info.size),
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (error) {
+    console.error("POST error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  // Full-file stream only (no Range) — ideal for blob fetch
-  const nodeStream = createReadStream(info.absolute);
-  const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
-
-  return new NextResponse(webStream, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Length": String(info.size),
-      "Cache-Control": "no-store",
-      // you may REMOVE Content-Disposition entirely here to reduce download heuristics
-      // "Content-Disposition": `inline; filename="document.pdf"`,
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 }

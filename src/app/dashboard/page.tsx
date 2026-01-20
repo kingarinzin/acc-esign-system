@@ -17,8 +17,10 @@ interface Meeting {
   _id: string;
   title: string;
   date: string;
-  status: "Draft" | "Sent" | "Signed" | "Prepared";
-  participants: { name: string; email: string; signed: boolean }[];
+  status: "Draft" | "Sent" | "Completed" | "Prepared";
+  participants: { name: string; email: string; signed: boolean; isCurrent?: boolean }[];
+  sentAt?: string;
+  currentSignerIndex?: number;
 }
 
 export default function Dashboard() {
@@ -95,7 +97,14 @@ useEffect(() => {
   // Calculate Status Counts
   const drafts = meetings.filter(m => m.status === "Draft");
   const pendingCount = meetings.filter(m => m.status === "Sent" || m.status === "Prepared").length;
-  const signedCount = meetings.filter(m => m.status === "Signed").length;
+  const completedCount = meetings.filter(m => m.status === "Completed").length;
+
+  // Get signing progress for a meeting
+  const getSigningProgress = (meeting: Meeting) => {
+    const signers = meeting.participants.filter(p => p.signed !== undefined);
+    const signed = signers.filter(p => p.signed).length;
+    return { signed, total: signers.length };
+  };
 
   // Handle Signature Uploads
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'signature' | 'initials') => {
@@ -146,7 +155,7 @@ useEffect(() => {
           <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center text-xs font-bold text-orange-700">SN</div>
           <button 
             onClick={() => router.push("/dashboard/new-meeting")}
-            className="bg-[#0015ff] text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-800 transition shadow-lg shadow-blue-100"
+            className="bg-[#0015ff] cursor-pointer text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-800 transition shadow-lg shadow-blue-100"
           >
             New Meeting +
           </button>
@@ -183,7 +192,7 @@ useEffect(() => {
                   <div className="bg-green-600 p-1.5 rounded text-white"><CheckCircle2 size={18} /></div>
                   <span className="text-sm font-medium text-gray-700">Completed</span>
                 </div>
-                <span className="text-sm font-bold text-gray-900">{signedCount}</span>
+                <span className="text-sm font-bold text-gray-900">{completedCount}</span>
               </div>
             </div>
           </section>
@@ -195,19 +204,35 @@ useEffect(() => {
             </div>
             <div className="p-4 space-y-4 min-h-40">
               {meetings.length > 0 ? (
-                meetings.slice(0, 4).map((m, i) => (
-                  <div key={i} className="text-xs text-gray-600 border-b border-gray-50 pb-2 flex justify-between">
-                    <span>
-                      <span className="font-semibold text-indigo-900">{m.title}</span> is currently 
-                      <span className={`ml-1 font-medium ${m.status === 'Signed' ? 'text-green-600' : 'text-blue-600'}`}>
-                        {m.status}
-                      </span>
-                    </span>
-                    <span className="text-gray-400">
-                      {new Date(m.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))
+                meetings.slice(0, 4).map((m, i) => {
+                  const progress = getSigningProgress(m);
+                  const statusColor = m.status === 'Completed' ? 'text-green-600' : 
+                                     m.status === 'Sent' ? 'text-blue-600' : 
+                                     m.status === 'Prepared' ? 'text-orange-600' : 'text-gray-600';
+                  
+                  return (
+                    <div key={i} className="text-xs text-gray-600 border-b border-gray-50 pb-2">
+                      <div className="flex justify-between items-start mb-1">
+                        <span>
+                          <span className="font-semibold text-indigo-900">{m.title}</span>
+                        </span>
+                        <span className="text-gray-400 text-[10px]">
+                          {m.sentAt ? new Date(m.sentAt).toLocaleDateString() : new Date(m.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`font-medium ${statusColor}`}>
+                          {m.status}
+                        </span>
+                        {m.status === 'Sent' && (
+                          <span className="text-[10px] text-gray-500">
+                            {progress.signed}/{progress.total} signed
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="h-full flex items-center justify-center text-gray-400 text-xs italic">
                   No activity yet

@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -28,7 +31,12 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (res.ok) {
-        router.push("/login");
+        // Redirect to login with returnTo parameter
+        if (returnTo) {
+          router.push(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+        } else {
+          router.push("/login");
+        }
       } else {
         setMessage(data.error || "Signup failed");
       }
@@ -87,7 +95,10 @@ export default function SignupPage() {
         {/* Login link */}
         <p className="text-center mt-6 text-sm text-gray-500">
           Already have an account?{" "}
-          <a href="/login" className="text-indigo-600 hover:underline">
+          <a 
+            href={returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login"} 
+            className="text-indigo-600 hover:underline"
+          >
             Login
           </a>
         </p>

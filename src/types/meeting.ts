@@ -5,9 +5,9 @@ export type PreparedField = {
   type: FieldType;
   x: number;
   y: number;
-  width?: number;  // optional if you later support resizing
-  height?: number; // optional if you later support resizing
-  page?: number;   // optional for multi-page later
+  width?: number;  
+  height?: number;
+  page?: number;
 };
 
 export type Participant = {
