@@ -145,7 +145,7 @@ export async function POST(req: Request) {
 
     const result = await db.collection("meetings").insertOne({
       title: title.trim(),
-      date: date ? new Date(date) : null,
+      date: date ? new Date(date) : new Date(),
       description: description.trim(),
       participants: cleanedParticipants,
       originalFileName: file.name,

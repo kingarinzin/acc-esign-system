@@ -12,6 +12,7 @@ import {
   Edit3,
   Loader2
 } from "lucide-react";
+import Sidebar from "@/components/Sidebar";
 
 interface Meeting {
   _id: string;
@@ -96,7 +97,9 @@ useEffect(() => {
 
   // Calculate Status Counts
   const drafts = meetings.filter(m => m.status === "Draft");
-  const pendingCount = meetings.filter(m => m.status === "Sent" || m.status === "Prepared").length;
+  const pendingCount = meetings.filter(m => 
+    m.status === "Sent" && m.participants.some(p => !p.signed)
+  ).length;
   const completedCount = meetings.filter(m => m.status === "Completed").length;
 
   // Get signing progress for a meeting
@@ -147,22 +150,27 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc] text-[#2d3748]">
-      {/* Top Navigation Bar */}
-      <header className="bg-white border-b px-8 py-3 flex justify-between items-center sticky top-0 z-10">
-        <h1 className="text-xl font-semibold text-indigo-900">Dashboard</h1>
-        <div className="flex items-center gap-4">
-          <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center text-xs font-bold text-orange-700">SN</div>
-          <button 
-            onClick={() => router.push("/dashboard/new-meeting")}
-            className="bg-[#0015ff] cursor-pointer text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-800 transition shadow-lg shadow-blue-100"
-          >
-            New Meeting +
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#f8f9fc] text-[#2d3748] flex">
+      <div className="w-64 flex-shrink-0"></div>
+      <Sidebar />
 
-      <main className="max-w-7xl mx-auto p-8 space-y-8">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Navigation Bar */}
+        <header className="bg-white border-b px-8 py-5 flex justify-between items-center sticky top-0 z-10">
+          <h1 className="text-xl font-semibold text-indigo-900">Dashboard</h1>
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center text-xs font-bold text-orange-700">SN</div>
+            <button 
+              onClick={() => router.push("/dashboard/new-meeting")}
+              className="bg-[#0015ff] cursor-pointer text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-800 transition shadow-lg shadow-blue-100"
+            >
+              New Meeting +
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 max-w-7xl w-full mx-auto p-8 space-y-8">
         
         {/* Top Grid: Documents Status & Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -330,7 +338,8 @@ useEffect(() => {
             </div>
           </section>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
