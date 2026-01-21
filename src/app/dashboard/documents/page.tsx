@@ -101,7 +101,7 @@ export default function DocumentList() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] text-[#2d3748] flex">
-      <div className="w-64 flex-shrink-0"></div>
+      <div className="w-64 shrink-0"></div>
       <Sidebar />
 
       {/* Main Content Area */}

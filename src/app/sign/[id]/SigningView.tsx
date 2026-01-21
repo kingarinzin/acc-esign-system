@@ -36,6 +36,7 @@ export default function SigningView({
     width: number;
     height: number;
   }>>([]);
+  const [isDraggingSignature, setIsDraggingSignature] = useState(false);
 
   // Fetch PDF
   useEffect(() => {
@@ -263,20 +264,30 @@ export default function SigningView({
       alert("Please create or draw your signature first");
       return;
     }
+    setIsDraggingSignature(true);
     e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData("text/plain", "signature");
+  };
+
+  const handleDragEnd = () => {
+    setIsDraggingSignature(false);
   };
 
   const handleDragOverPage = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = "copy";
+    if (isDraggingSignature) {
+      e.dataTransfer.dropEffect = "copy";
+    }
   };
 
   const handleDropOnPage = (e: React.DragEvent, pageNum: number) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!userSignature) return;
+    
+    if (!userSignature || !isDraggingSignature) return;
+    
+    setIsDraggingSignature(false);
 
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
@@ -345,9 +356,10 @@ export default function SigningView({
                 <div 
                   draggable
                   onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
                   className="cursor-move hover:bg-gray-100 rounded border-2 border-dashed border-blue-300 p-2"
                 >
-                  <img src={userSignature} alt="Your signature" className="w-full h-24 object-contain" />
+                  <img src={userSignature} alt="Your signature" className="w-full h-24 object-contain pointer-events-none" />
                   <p className="text-xs text-center text-blue-600 font-medium mt-2">
                     ⬆️ Drag to signature fields
                   </p>
@@ -490,17 +502,12 @@ export default function SigningView({
                               onDragOver={(e) => isMyField && !isSigned && handleDragOver(e, field.id)}
                               onDrop={(e) => isMyField && !isSigned && handleDrop(e, field.id)}
                             >
-                              {/* Show recipient name label */}
-                              <div className={`text-xs font-semibold px-1 inline-block ${
-                                isMyField ? 'bg-blue-200 text-blue-700' : 
-                                ownerSigned ? 'bg-green-200 text-green-700' :
-                                'bg-gray-200 text-gray-600'
-                              }`}>
-                                {displayName}
-                                {field.type === 'signature' && (isMyField && !isSigned ? ' - ✍️ Drop here' : '')}
-                                {field.type === 'name' && !ownerSigned ? ' - Name field' : ''}
-                                {field.type === 'date' && !ownerSigned ? ' - Date field' : ''}
-                              </div>
+                              {/* Show recipient name label only for unsigned signature fields */}
+                              {!ownerSigned && field.type === 'signature' && (
+                                <div className="absolute top-1 left-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-700 bg-opacity-80 text-white z-10">
+                                  {displayName}
+                                </div>
+                              )}
                               
                               {/* Show signature if placed or already signed */}
                               {field.type === 'signature' && (
@@ -520,20 +527,27 @@ export default function SigningView({
                                       className="max-w-full max-h-full object-contain"
                                     />
                                   </div>
-                                ) : null
+                                ) : (
+                                  <div className="flex items-center justify-center h-full text-xs text-gray-500 italic">
+                                    {isMyField ? 'Drop signature' : ''}
+                                  </div>
+                                )
                               )}
                               
-                              {/* Show name if field type is name and owner has signed */}
-                              {field.type === 'name' && ownerSigned && (
-                                <div className="flex items-center justify-center h-full text-sm font-semibold text-gray-800">
-                                  {fieldOwner.name}
+                              {/* Show name if field type is name */}
+                              {field.type === 'name' && (
+                                <div className="flex items-center justify-center h-full text-sm font-semibold text-gray-800 px-2">
+                                  {ownerSigned ? fieldOwner.name : (isMyField ? currentUser.name : displayName)}
                                 </div>
                               )}
                               
-                              {/* Show date if field type is date and owner has signed */}
-                              {field.type === 'date' && ownerSigned && (
-                                <div className="flex items-center justify-center h-full text-xs text-gray-700">
-                                  {new Date(fieldOwner.signedAt).toLocaleDateString()}
+                              {/* Show date if field type is date */}
+                              {field.type === 'date' && (
+                                <div className="flex items-center justify-center h-full text-xs text-gray-700 px-2">
+                                  {ownerSigned 
+                                    ? new Date(fieldOwner.signedAt).toLocaleDateString()
+                                    : (isMyField ? new Date().toLocaleDateString() : new Date().toLocaleDateString())
+                                  }
                                 </div>
                               )}
                             </div>
@@ -571,6 +585,7 @@ export default function SigningView({
                             size={{ width: sig.width, height: sig.height }}
                             position={{ x: sig.x, y: sig.y }}
                             bounds="parent"
+                            disableDragging={isDraggingSignature}
                             onDragStop={(e, d) => {
                               setFreeformSignatures(prev =>
                                 prev.map(s => s.id === sig.id ? { ...s, x: d.x, y: d.y } : s)
@@ -592,7 +607,7 @@ export default function SigningView({
                               <img 
                                 src={userSignature || ''} 
                                 alt="signature" 
-                                className="w-full h-full object-contain p-1"
+                                className="w-full h-full object-contain p-1 pointer-events-none"
                               />
                               <button
                                 onClick={() => setFreeformSignatures(prev => prev.filter(s => s.id !== sig.id))}

@@ -152,6 +152,7 @@ export async function POST(
       try {
         const transporter = createTransporter();
         const signingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign/${meetingId}`;
+        const previousSignerName = participant.name || user.name || "A participant";
 
         await transporter.sendMail({
           from: process.env.EMAIL_USER,
@@ -161,7 +162,7 @@ export async function POST(
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #4F46E5;">Your Turn to Sign</h2>
               <p>Hello ${nextSigner.name},</p>
-              <p>${user.name} has signed the document. It's now your turn to sign:</p>
+              <p>${previousSignerName} has signed the document. It's now your turn to sign:</p>
               <div style="background: #F3F4F6; padding: 15px; border-radius: 8px; margin: 20px 0;">
                 <strong>Document:</strong> ${meeting.title}<br>
                 <strong>From:</strong> ${organizerName}${organizerEmail ? ` (${organizerEmail})` : ''}<br>

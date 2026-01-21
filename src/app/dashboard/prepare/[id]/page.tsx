@@ -92,6 +92,7 @@ export default function PreparePage() {
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
   const [placingType, setPlacingType] = useState<FieldType | null>(null);
   const [draggingFieldType, setDraggingFieldType] = useState<FieldType | null>(null);
+  const [selectedRecipient, setSelectedRecipient] = useState<string | null>(null);
 
   // --- Fetch meeting ---
   useEffect(() => {
@@ -102,7 +103,14 @@ export default function PreparePage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        if (res.ok) setMeeting(data.meeting || data);
+        if (res.ok) {
+          const meetingData = data.meeting || data;
+          setMeeting(meetingData);
+          // Auto-select first participant
+          if (meetingData?.participants?.length > 0 && !selectedRecipient) {
+            setSelectedRecipient(meetingData.participants[0].name);
+          }
+        }
       } catch (err) {
         console.error("Error fetching meeting:", err);
       } finally {
@@ -268,6 +276,7 @@ useEffect(() => {
           yPct: f.yPct,
           wPct: f.wPct,
           hPct: f.hPct,
+          recipientName: f.recipientName,
         })),
       };
 
@@ -442,6 +451,9 @@ useEffect(() => {
                 draggingFieldType={draggingFieldType}
                 userSignature={userSignature}
                 onNumPagesChange={setNumPages}
+                participants={meeting?.participants}
+                selectedRecipient={selectedRecipient}
+                onSelectRecipient={setSelectedRecipient}
               />
             )}
           </div>
@@ -492,15 +504,22 @@ useEffect(() => {
 
           <div className="border-t pt-4">
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-3">
-              Recipients
+              Recipients (Click to Select)
             </p>
             <div className="space-y-2">
               {meeting?.participants?.map((p: any, i: number) => (
                 <div
                   key={i}
-                  className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100"
+                  onClick={() => setSelectedRecipient(p.name)}
+                  className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                    selectedRecipient === p.name
+                      ? 'bg-blue-100 border-blue-500 ring-2 ring-blue-300'
+                      : 'bg-gray-50 border-gray-100 hover:bg-gray-100 hover:border-gray-300'
+                  }`}
                 >
-                  <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[9px] font-bold shadow-sm">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shadow-sm ${
+                    selectedRecipient === p.name ? 'bg-blue-600 text-white' : 'bg-indigo-600 text-white'
+                  }`}>
                     {p?.name?.[0]?.toUpperCase?.() || "?"}
                   </div>
                   <div className="overflow-hidden flex-1">
@@ -511,9 +530,17 @@ useEffect(() => {
                       {p.email}
                     </p>
                   </div>
+                  {selectedRecipient === p.name && (
+                    <div className="text-blue-600 text-xs">✓</div>
+                  )}
                 </div>
               ))}
             </div>
+            {selectedRecipient && (
+              <p className="text-[9px] text-blue-600 font-semibold mt-2 text-center">
+                Fields will be assigned to {selectedRecipient}
+              </p>
+            )}
           </div>
         </aside>
       </div>

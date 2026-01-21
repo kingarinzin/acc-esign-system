@@ -15,6 +15,7 @@ type Field = {
   yPct: number;         // 0..1
   wPct: number;         // 0..1
   hPct: number;         // 0..1
+  recipientName?: string; // Name of recipient this field is assigned to
 };
 
 function requireUser(req: Request) {

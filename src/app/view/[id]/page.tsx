@@ -2,10 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Document, Page, pdfjs } from "react-pdf";
 import { Loader2, Download, CheckCircle } from "lucide-react";
+import dynamic from "next/dynamic";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Dynamically import react-pdf components to avoid SSR issues
+const Document = dynamic(
+  () => import("react-pdf").then((mod) => mod.Document),
+  { ssr: false }
+);
+const Page = dynamic(
+  () => import("react-pdf").then((mod) => mod.Page),
+  { ssr: false }
+);
+
+// Setup PDF.js worker
+if (typeof window !== "undefined") {
+  import("react-pdf").then((pdfjs) => {
+    pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.pdfjs.version}/build/pdf.worker.min.mjs`;
+  });
+}
 
 export default function ViewDocumentPage() {
   const { id } = useParams<{ id: string }>();
@@ -63,15 +78,34 @@ export default function ViewDocumentPage() {
     fetchDocument();
   }, [id, router]);
 
-  const handleDownload = () => {
-    if (!blobUrl || !meeting) return;
+  const handleDownload = async () => {
+    if (!meeting) return;
 
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = `${meeting.title || "document"}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/meetings/${id}/download`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        alert("Failed to download PDF");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${meeting.title || "document"}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download error:", err);
+      alert("Failed to download PDF");
+    }
   };
 
   // Collect all signatures from signed participants

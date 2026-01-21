@@ -101,6 +101,9 @@ export default function PdfRenderer({
   userSignature,
   userName,
   onNumPagesChange,
+  participants,
+  selectedRecipient,
+  onSelectRecipient,
 }: {
   fileUrl: string;
   authToken: string;
@@ -111,6 +114,9 @@ export default function PdfRenderer({
   userSignature: string | null;
   userName?: string;
   onNumPagesChange?: (numPages: number) => void;
+  participants?: Array<{ name: string; email: string }>;
+  selectedRecipient?: string | null;
+  onSelectRecipient?: (name: string) => void;
 }) {
   const [numPages, setNumPages] = useState(0);
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
@@ -223,6 +229,10 @@ export default function PdfRenderer({
               onRect={handlePageRect}
               onDrop={(pg, xPct, yPct) => {
                 if (!draggingFieldType) return;
+                
+                // Get the recipient name from selectedRecipient or use a default
+                const recipientName = selectedRecipient || participants?.[0]?.name || 'Recipient';
+                
                 const defaults = draggingFieldType === "signature" 
                   ? { wPct: 0.28, hPct: 0.09 } 
                   : draggingFieldType === "name" 
@@ -236,9 +246,7 @@ export default function PdfRenderer({
                   xPct,
                   yPct,
                   ...defaults,
-                  recipientName: draggingFieldType === "name" ? "Full Name" : 
-                                 draggingFieldType === "signature" ? "Signature" :
-                                 "Date",
+                  recipientName,
                 };
 
                 setFields((prev) => [...prev, newField]);
@@ -260,9 +268,15 @@ export default function PdfRenderer({
                     // Logic to decide content: Image for signature, Text for others
                     const isSignature = field.type === "signature";
                     const isNameField = field.type === "name";
-                    const fieldText = field.type === "name" 
-                      ? (field.recipientName || "Full Name") 
-                      : todayDate;
+                    const isDateField = field.type === "date";
+                    
+                    // Display text based on field type
+                    const todayDate = new Date().toLocaleDateString();
+                    const fieldText = isNameField 
+                      ? (field.recipientName || "Full Name")
+                      : isDateField
+                      ? todayDate
+                      : field.recipientName || "Signature";
 
                     return (
                       <Rnd
@@ -290,21 +304,21 @@ export default function PdfRenderer({
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center px-2">
-                              {isNameField && editingFieldId === field.id ? (
+                              {editingFieldId === field.id ? (
                                 <input
                                   type="text"
                                   value={editingLabel}
                                   onChange={(e) => setEditingLabel(e.target.value)}
                                   onBlur={() => {
                                     setFields((prev) => prev.map((f) => 
-                                      f.id === field.id ? { ...f, recipientName: editingLabel || "Full Name" } : f
+                                      f.id === field.id ? { ...f, recipientName: editingLabel || field.recipientName } : f
                                     ));
                                     setEditingFieldId(null);
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       setFields((prev) => prev.map((f) => 
-                                        f.id === field.id ? { ...f, recipientName: editingLabel || "Full Name" } : f
+                                        f.id === field.id ? { ...f, recipientName: editingLabel || field.recipientName } : f
                                       ));
                                       setEditingFieldId(null);
                                     }
@@ -316,15 +330,14 @@ export default function PdfRenderer({
                                 />
                               ) : (
                                 <span 
-                                  className="text-gray-900 font-medium whitespace-nowrap overflow-hidden select-none"
+                                  className="text-gray-900 font-medium whitespace-nowrap overflow-hidden select-none cursor-pointer"
                                   style={{ fontSize: `calc(${rect.h}px * 0.35)` }}
                                   onDoubleClick={(e) => {
-                                    if (isNameField) {
-                                      e.stopPropagation();
-                                      setEditingFieldId(field.id);
-                                      setEditingLabel(field.recipientName || "Full Name");
-                                    }
+                                    e.stopPropagation();
+                                    setEditingFieldId(field.id);
+                                    setEditingLabel(field.recipientName || fieldText);
                                   }}
+                                  title="Double-click to edit recipient name"
                                 >
                                   {fieldText}
                                 </span>

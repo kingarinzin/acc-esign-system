@@ -8,6 +8,7 @@ export type PreparedField = {
   width?: number;  
   height?: number;
   page?: number;
+  recipientName?: string;
 };
 
 export type Participant = {
