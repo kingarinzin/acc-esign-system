@@ -39,6 +39,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       {/* Card */}
       <div className="bg-white shadow-2xl border border-gray-200 rounded-3xl p-10 w-full max-w-md">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img src="/logo.png" alt="e-Sign Logo" className="h-16 w-auto" />
+        </div>
+        
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Welcome Back</h1>

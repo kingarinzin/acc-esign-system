@@ -343,96 +343,46 @@ export default function SigningView({
       </header>
 
       <div className="flex-1 flex">
-        {/* Left: Signature Pad */}
-        <aside className="w-80 bg-white border-r p-6 flex flex-col gap-6">
-          <div>
-            <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-              <PenTool className="w-4 h-4 text-blue-600" />
-              Your Signature
-            </h3>
-            
-            {userSignature ? (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <div 
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  className="cursor-move hover:bg-gray-100 rounded border-2 border-dashed border-blue-300 p-2"
-                >
-                  <img src={userSignature} alt="Your signature" className="w-full h-24 object-contain pointer-events-none" />
-                  <p className="text-xs text-center text-blue-600 font-medium mt-2">
-                    ⬆️ Drag to signature fields
-                  </p>
-                </div>
-                <button
-                  onClick={() => setUserSignature(null)}
-                  className="mt-3 w-full text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Create New Signature
-                </button>
-              </div>
-            ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <canvas
-                  ref={canvasRef}
-                  width={280}
-                  height={120}
-                  className="bg-white cursor-crosshair border-b touch-none"
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                />
-                <div className="bg-gray-50 p-3 flex gap-2">
-                  <button
-                    onClick={clearSignature}
-                    className="flex-1 text-xs bg-white border rounded py-1.5 hover:bg-gray-50"
+        {/* Left: Page Thumbnails */}
+        <aside className="w-48 bg-white border-r p-3 overflow-y-auto z-40 shadow-sm">
+          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+            Pages
+          </h3>
+          {blobUrl ? (
+            <Document file={blobUrl}>
+              <div className="space-y-2">
+                {Array.from({ length: numPages }, (_, i) => (
+                  <div
+                    key={i + 1}
+                    className="border border-gray-300 rounded p-2 bg-gray-50 hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition"
+                    onClick={() => {
+                      const pageElement = document.getElementById(`pdf-page-${i + 1}`);
+                      if (pageElement) {
+                        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }}
                   >
-                    Clear
-                  </button>
-                  <button
-                    onClick={saveSignature}
-                    disabled={!hasDrawnSignature}
-                    className="flex-1 text-xs bg-blue-600 text-white rounded py-1.5 hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Save
-                  </button>
-                </div>
+                    <div className="text-[10px] font-semibold text-gray-600 mb-1">
+                      Page {i + 1}
+                    </div>
+                    <div className="w-full bg-white border border-gray-200 rounded overflow-hidden">
+                      <Page
+                        pageNumber={i + 1}
+                        width={140}
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-
-          <div className="border-t pt-6">
-            <h3 className="text-sm font-bold text-gray-700 mb-3">Document Info</h3>
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-gray-500">Title:</span>
-                <p className="font-medium">{meeting.title}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Your fields:</span>
-                <p className="font-medium">{myFields.length} field(s)</p>
-              </div>
-            </div>
-          </div>
-
-          {(userSignature || hasDrawnSignature) && (
-            <div className="mt-auto bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-semibold text-green-800">Ready to Sign</p>
-                <p className="text-green-700 text-xs mt-1">
-                  Click "Sign & Submit" to complete your signature
-                </p>
-              </div>
-            </div>
+            </Document>
+          ) : (
+            <div className="text-[10px] text-gray-400 text-center py-4">Loading...</div>
           )}
         </aside>
 
-        {/* Right: Document Preview */}
+        {/* Center: Document Preview */}
         <main className="flex-1 overflow-auto p-8 flex justify-center bg-[#e2e8f0]">
           <div className="max-w-3xl">
             {blobUrl && (
@@ -445,7 +395,8 @@ export default function SigningView({
                   const pageNum = i + 1;
                   return (
                     <div 
-                      key={pageNum} 
+                      key={pageNum}
+                      id={`pdf-page-${pageNum}`}
                       className="mb-6 shadow-xl relative"
                       onDragOver={handleDragOverPage}
                       onDrop={(e) => handleDropOnPage(e, pageNum)}
@@ -626,6 +577,95 @@ export default function SigningView({
             )}
           </div>
         </main>
+
+        {/* Right: Signature Pad */}
+        <aside className="w-80 bg-white border-l p-6 flex flex-col gap-6">
+          <div>
+            <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <PenTool className="w-4 h-4 text-blue-600" />
+              Your Signature
+            </h3>
+            
+            {userSignature ? (
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <div 
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  className="cursor-move hover:bg-gray-100 rounded border-2 border-dashed border-blue-300 p-2"
+                >
+                  <img src={userSignature} alt="Your signature" className="w-full h-24 object-contain pointer-events-none" />
+                  <p className="text-xs text-center text-blue-600 font-medium mt-2">
+                    ⬆️ Drag to signature fields
+                  </p>
+                </div>
+                <button
+                  onClick={() => setUserSignature(null)}
+                  className="mt-3 w-full text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Create New Signature
+                </button>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <canvas
+                  ref={canvasRef}
+                  width={280}
+                  height={120}
+                  className="bg-white cursor-crosshair border-b touch-none"
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                />
+                <div className="bg-gray-50 p-3 flex gap-2">
+                  <button
+                    onClick={clearSignature}
+                    className="flex-1 text-xs bg-white border rounded py-1.5 hover:bg-gray-50"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={saveSignature}
+                    disabled={!hasDrawnSignature}
+                    className="flex-1 text-xs bg-blue-600 text-white rounded py-1.5 hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t pt-6">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">Document Info</h3>
+            <div className="space-y-2 text-sm">
+              <div>
+                <span className="text-gray-500">Title:</span>
+                <p className="font-medium">{meeting.title}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Your fields:</span>
+                <p className="font-medium">{myFields.length} field(s)</p>
+              </div>
+            </div>
+          </div>
+
+          {(userSignature || hasDrawnSignature) && (
+            <div className="mt-auto bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-green-800">Ready to Sign</p>
+                <p className="text-green-700 text-xs mt-1">
+                  Click "Sign & Submit" to complete your signature
+                </p>
+              </div>
+            </div>
+          )}
+        </aside>
       </div>
     </div>
   );

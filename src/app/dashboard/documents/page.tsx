@@ -107,7 +107,7 @@ export default function DocumentList() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Top Navigation Bar */}
-        <header className="bg-white border-b px-8 py-5.5 flex justify-between items-center sticky top-0 z-10">
+        <header className="bg-white border-b px-8 py-7.5 flex justify-between items-center sticky top-0 z-10">
           <h1 className="text-xl font-semibold text-indigo-900">Document List</h1>
           <div className="flex items-center gap-4">
             <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center text-xs font-bold text-orange-700">SN</div>
