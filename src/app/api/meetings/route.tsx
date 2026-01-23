@@ -38,7 +38,13 @@ export async function GET(req: Request) {
     const token = getBearerToken(req);
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const decoded: any = jwt.verify(token, requireJwtSecret());
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, requireJwtSecret());
+    } catch (jwtErr) {
+      console.error("JWT Verification Error:", jwtErr);
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
 
     const client = await clientPromise;
     const db = client.db("e_sign_db");

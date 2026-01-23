@@ -35,6 +35,14 @@ export default function Dashboard() {
   const sigInputRef = useRef<HTMLInputElement>(null);
   const initialsInputRef = useRef<HTMLInputElement>(null);
 
+  // Check authentication on mount
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+    }
+  }, [router]);
+
 
   // Fetch Signatures
 useEffect(() => {
@@ -160,7 +168,6 @@ useEffect(() => {
         <header className="bg-white shadow-md px-8 py-7 flex justify-between items-center sticky top-0 z-10">
           <h1 className="text-xl font-semibold text-indigo-900">Dashboard</h1>
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center text-xs font-bold text-orange-700">SN</div>
             <button 
               onClick={() => router.push("/dashboard/new-meeting")}
               className="bg-[#0015ff] cursor-pointer text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-800 transition shadow-lg shadow-blue-100"

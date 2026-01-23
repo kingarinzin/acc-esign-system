@@ -1,11 +1,16 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, FileText } from "lucide-react";
+import { LayoutDashboard, FileText, LogOut } from "lucide-react";
 
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push("/login");
+  };
 
   const navItems = [
     {
@@ -46,6 +51,15 @@ export default function Sidebar() {
           );
         })}
       </nav>
+      <div className="p-4 border-t">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition cursor-pointer"
+        >
+          <LogOut size={18} />
+          Logout
+        </button>
+      </div>
     </aside>
   );
 }
