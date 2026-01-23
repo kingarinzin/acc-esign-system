@@ -22,9 +22,19 @@ if (process.env.NODE_ENV === "development") {
 }
 
 export async function connectToDatabase() {
-  const client = await clientPromise;
-  const db = client.db(); 
-  return { client, db };
+  try {
+    const client = await clientPromise;
+    const db = client.db();
+    
+    // Test the connection
+    await db.admin().ping();
+    console.log("✅ MongoDB connected successfully");
+    
+    return { client, db };
+  } catch (error) {
+    console.error("❌ MongoDB connection failed:", error);
+    throw error;
+  }
 }
 
 export default clientPromise;
