@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ChevronDown } from "lucide-react";
+import { Loader2, ChevronDown, Trash2 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 
 interface Meeting {
@@ -23,6 +23,7 @@ export default function DocumentList() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("All");
   const [userEmail, setUserEmail] = useState<string>("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -91,6 +92,40 @@ export default function DocumentList() {
     return { month, day, year };
   };
 
+  const handleDelete = async (meetingId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation when clicking delete
+    
+    if (deleteConfirm === meetingId) {
+      // Perform actual delete
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`/api/meetings/${meetingId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          // Remove from state
+          setMeetings(prev => prev.filter(m => m._id !== meetingId));
+          setDeleteConfirm(null);
+        } else {
+          alert("Failed to delete document");
+        }
+      } catch (err) {
+        console.error("Delete error:", err);
+        alert("Failed to delete document");
+      }
+    } else {
+      // Show confirmation
+      setDeleteConfirm(meetingId);
+    }
+  };
+
+  const cancelDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteConfirm(null);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8f9fc]">
@@ -107,7 +142,7 @@ export default function DocumentList() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Top Navigation Bar */}
-        <header className="bg-white border-b px-8 py-7.5 flex justify-between items-center sticky top-0 z-10">
+        <header className="bg-white shadow-md px-8 py-7.5 flex justify-between items-center sticky top-0 z-10">
           <h1 className="text-xl font-semibold text-indigo-900">Document List</h1>
           <div className="flex items-center gap-4">
             <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center text-xs font-bold text-orange-700">SN</div>
@@ -193,9 +228,37 @@ export default function DocumentList() {
                         </div>
                       </div>
 
-                      {/* Right section with status badge */}
-                      <div className={`${getStatusBadge(meeting.status)} text-white text-xs font-semibold px-4 py-2 rounded uppercase`}>
-                        {meeting.status}
+                      {/* Right section with status badge and delete button */}
+                      <div className="flex items-center gap-3">
+                        <div className={`${getStatusBadge(meeting.status)} text-white text-xs font-semibold px-4 py-2 rounded uppercase`}>
+                          {meeting.status}
+                        </div>
+                        
+                        {/* Delete Button */}
+                        {deleteConfirm === meeting._id ? (
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => handleDelete(meeting._id, e)}
+                              className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded transition"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={cancelDelete}
+                              className="bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs font-medium px-3 py-1.5 rounded transition"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => handleDelete(meeting._id, e)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                            title="Delete document"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

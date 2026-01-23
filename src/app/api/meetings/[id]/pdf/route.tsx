@@ -80,8 +80,16 @@ async function getMeetingPdfInfo(meetingId: string, userId: string) {
       String(meeting.storedFileName)
     );
 
-    const s = await stat(absolute);
-    return { absolute, size: s.size };
+    try {
+      const s = await stat(absolute);
+      return { absolute, size: s.size };
+    } catch (statError: any) {
+      if (statError.code === 'ENOENT') {
+        console.error(`PDF file not found: ${absolute}`);
+        return { error: 'FILE_MISSING' };
+      }
+      throw statError;
+    }
   } catch (error) {
     console.error("getMeetingPdfInfo error:", error);
     return null;
@@ -103,6 +111,9 @@ export async function HEAD(req: Request, { params }: { params: Promise<{ id: str
     const info = await getMeetingPdfInfo(id, user.id);
     if (!info) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if ((info as any).error === 'FILE_MISSING') {
+      return NextResponse.json({ error: "PDF file is missing from server" }, { status: 404 });
     }
 
     return new NextResponse(null, {
@@ -135,6 +146,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const info = await getMeetingPdfInfo(id, user.id);
     if (!info) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if ((info as any).error === 'FILE_MISSING') {
+      return NextResponse.json({ error: "PDF file is missing from server" }, { status: 404 });
     }
 
     const range = req.headers.get("range");
@@ -200,6 +214,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const info = await getMeetingPdfInfo(id, user.id);
     if (!info) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if ((info as any).error === 'FILE_MISSING') {
+      return NextResponse.json({ error: "PDF file is missing from server" }, { status: 404 });
     }
 
     const nodeStream = createReadStream(info.absolute);

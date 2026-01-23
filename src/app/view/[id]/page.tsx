@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2, Download, CheckCircle } from "lucide-react";
+import { Loader2, Download, CheckCircle, AlertCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 
 // Dynamically import react-pdf components to avoid SSR issues
@@ -65,6 +65,13 @@ export default function ViewDocumentPage() {
         if (pdfRes.ok) {
           const blob = await pdfRes.blob();
           setBlobUrl(URL.createObjectURL(blob));
+        } else {
+          const errorData = await pdfRes.json().catch(() => ({}));
+          if (errorData.error?.includes("missing")) {
+            setError("The PDF file for this document is missing from the server. The document record exists but the file has been deleted or lost.");
+          } else {
+            setError("Failed to load PDF file");
+          }
         }
 
         setLoading(false);
@@ -149,15 +156,41 @@ export default function ViewDocumentPage() {
 
   if (error) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#f8f9fc]">
-        <div className="text-center">
-          <p className="text-red-600 text-lg font-semibold">{error}</p>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Go to Dashboard
-          </button>
+      <div className="min-h-screen bg-[#f8f9fc] flex flex-col">
+        {meeting && (
+          <header className="bg-white border-b px-8 py-4 shadow-sm">
+            <div className="max-w-6xl mx-auto flex justify-between items-center">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">{meeting.title}</h1>
+                <p className="text-sm text-gray-500 mt-1">Document ID: {id}</p>
+              </div>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 transition"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          </header>
+        )}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-lg bg-white p-8 rounded-lg shadow-md border border-red-200">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">PDF File Not Found</h2>
+            <p className="text-red-600 text-sm mb-4">{error}</p>
+            <p className="text-gray-600 text-sm mb-6">
+              The document metadata exists in the database, but the PDF file has been removed from the server. 
+              This may have happened due to file cleanup or migration.
+            </p>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Go to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -214,8 +247,8 @@ export default function ViewDocumentPage() {
                     />
                     
                     {/* Show all fields with their data */}
-                    {meeting.fields
-                      ?.filter((f: any) => f.page === pageNum)
+                    {meeting?.fields && Array.isArray(meeting.fields) && meeting.fields
+                      .filter((f: any) => f.page === pageNum)
                       .map((field: any, idx: number) => {
                         const fieldOwner = meeting.participants?.find((p: any) => {
                           const fieldRecipient = field.recipientName?.toLowerCase() || '';
@@ -238,7 +271,7 @@ export default function ViewDocumentPage() {
                             }}
                           >
                             {/* Show signature if field type is signature */}
-                            {field.type === 'signature' && ownerSigned && fieldOwner.signature && (
+                            {field.type === 'signature' && ownerSigned && fieldOwner?.signature && (
                               <div className="w-full h-full flex items-center justify-center p-1">
                                 <img 
                                   src={fieldOwner.signature} 
@@ -249,14 +282,14 @@ export default function ViewDocumentPage() {
                             )}
                             
                             {/* Show name if field type is name */}
-                            {field.type === 'name' && ownerSigned && (
+                            {field.type === 'name' && ownerSigned && fieldOwner?.name && (
                               <div className="flex items-center justify-center h-full text-sm font-semibold text-gray-800">
                                 {fieldOwner.name}
                               </div>
                             )}
                             
                             {/* Show date if field type is date */}
-                            {field.type === 'date' && ownerSigned && (
+                            {field.type === 'date' && ownerSigned && fieldOwner?.signedAt && (
                               <div className="flex items-center justify-center h-full text-xs text-gray-700">
                                 {new Date(fieldOwner.signedAt).toLocaleDateString()}
                               </div>

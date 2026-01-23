@@ -21,8 +21,8 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-white border-r h-screen fixed top-0 left-0 flex flex-col overflow-y-auto">
-      <div className="p-6 border-b flex items-center justify-center">
+    <aside className="w-64 bg-white shadow-lg h-screen fixed top-0 left-0 flex flex-col overflow-y-auto">
+      <div className="p-6 shadow-sm flex items-center justify-center">
         <img src="/logo.png" alt="e-Sign Logo" className="h-11 w-auto" />
       </div>
       <nav className="flex-1  p-4 space-y-2">
