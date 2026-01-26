@@ -155,7 +155,7 @@ export async function POST(
       // Send email to next signer
       try {
         const transporter = createTransporter();
-        const signingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign/${meetingId}`;
+        const signingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign/${meetingId}?email=${encodeURIComponent(nextSigner.email)}`;
         const previousSignerName = participant.name || user.name || "A participant";
 
         await transporter.sendMail({

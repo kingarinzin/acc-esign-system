@@ -6,6 +6,7 @@ import fssync from "fs";
 import path from "path";
 import crypto from "crypto";
 import { ObjectId } from "mongodb";
+import { getUserIdVariants } from "@/lib/auth-helpers";
 
 export const runtime = "nodejs"; // IMPORTANT: fs/path require Node runtime
 
@@ -53,14 +54,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const userId = requireUserId(decoded);
+    const { organizerIdQuery } = getUserIdVariants(decoded.id);
 
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
     const meetings = await db
       .collection("meetings")
-      .find({ organizerId: userId })
+      .find({ organizerId: organizerIdQuery })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -84,7 +85,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const userId = requireUserId(decoded);
+    const { userIdObj, userIdStr } = getUserIdVariants(decoded.id);
+    const userId = userIdObj ?? new ObjectId(userIdStr);
 
     const formData = await req.formData();
     const dataRaw = formData.get("data");

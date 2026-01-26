@@ -3,6 +3,7 @@ import clientPromise from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import nodemailer from "nodemailer";
+import { getUserIdVariants } from "@/lib/auth-helpers";
 
 function getBearerToken(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -43,6 +44,7 @@ export async function POST(
     const decoded: any = jwt.verify(token, requireJwtSecret());
     const { id } = await params;
     const meetingId = id;
+    const { organizerIdQuery } = getUserIdVariants(decoded.id);
 
     if (!ObjectId.isValid(meetingId)) {
       return NextResponse.json({ error: "Invalid meeting ID" }, { status: 400 });
@@ -52,11 +54,9 @@ export async function POST(
     const db = client.db("e_sign_db");
 
     // Fetch the meeting    
-    const organizerId = new ObjectId(decoded.id);
-
     const meeting = await db.collection("meetings").findOne({
       _id: new ObjectId(meetingId),
-      organizerId,
+      organizerId: organizerIdQuery,
     });
 
     if (!meeting) {
@@ -99,7 +99,7 @@ export async function POST(
     if (firstSigner) {
       try {
         const transporter = createTransporter();
-        const signingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign/${meetingId}`;
+        const signingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign/${meetingId}?email=${encodeURIComponent(firstSigner.email)}`;
 
         await transporter.sendMail({
           from: process.env.EMAIL_USER,

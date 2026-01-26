@@ -45,13 +45,19 @@ export default function SignDocumentPage() {
         const meetingData = await meetingRes.json();
         const mtg = meetingData.meeting || meetingData;
 
+        // Check if there's an expected email in URL
+        const params = new URLSearchParams(window.location.search);
+        const expectedEmail = params.get('email');
+
         // Now check if user is logged in
         const token = localStorage.getItem("token");
         
         if (!token) {
-          // No token - check if they should be a participant first
-          // This allows us to show a better error or redirect to signup
-          router.push(`/signup?returnTo=/sign/${id}`);
+          // No token - redirect to signup with email pre-fill if available
+          const returnUrl = expectedEmail 
+            ? `/signup?email=${encodeURIComponent(expectedEmail)}&returnTo=/sign/${id}?email=${encodeURIComponent(expectedEmail)}`
+            : `/signup?returnTo=/sign/${id}`;
+          router.push(returnUrl);
           return;
         }
 
@@ -67,6 +73,15 @@ export default function SignDocumentPage() {
         }
 
         const userData = await userRes.json();
+        
+        // If there's an expected email in URL, verify it matches the logged-in user
+        if (expectedEmail && userData.email.toLowerCase() !== expectedEmail.toLowerCase()) {
+          // Wrong user is logged in - clear token and redirect to login
+          localStorage.removeItem("token");
+          router.push(`/login?email=${encodeURIComponent(expectedEmail)}&returnTo=/sign/${id}?email=${encodeURIComponent(expectedEmail)}&message=${encodeURIComponent('Please sign in with the correct email address')}`);
+          return;
+        }
+        
         setCurrentUser(userData);
         
         // Check if current user is a participant

@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import formidable from "formidable-serverless";
 import fs from "fs";
 import path from "path";
+import { getUserIdVariants } from "@/lib/auth-helpers";
 
 const allowedMimeTypes = [
   "application/pdf",
@@ -63,6 +64,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { id } = await params;
     const decoded = await authenticate(req);
+    const { organizerIdQuery } = getUserIdVariants(decoded.id);
 
     // 1. Use native req.formData() instead of formidable
     const formData = await req.formData();
@@ -98,7 +100,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     // 3. Perform the update
     const result = await db.collection("meetings").updateOne(
-      { _id: new ObjectId(id), organizerId: decoded.id },
+      { _id: new ObjectId(id), organizerId: organizerIdQuery },
       {
         $set: {
           title,
@@ -123,10 +125,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   try {
     const { id } = await params; // Fix: Must await params
     const decoded = await authenticate(req);
+    const { organizerIdQuery } = getUserIdVariants(decoded.id);
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
-    await db.collection("meetings").deleteOne({ _id: new ObjectId(id), organizerId: decoded.id });
+    await db.collection("meetings").deleteOne({ _id: new ObjectId(id), organizerId: organizerIdQuery });
     return NextResponse.json({ message: "Deleted" });
   } catch (err: any) {
     return NextResponse.json({ error: "Delete failed" }, { status: 500 });

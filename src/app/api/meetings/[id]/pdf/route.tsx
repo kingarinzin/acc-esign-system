@@ -8,6 +8,7 @@ import { ObjectId } from "mongodb";
 import { stat } from "fs/promises";
 import { createReadStream } from "fs";
 import { Readable } from "stream";
+import { getUserIdVariants } from "@/lib/auth-helpers";
 
 export const runtime = "nodejs";
 
@@ -53,15 +54,15 @@ async function getMeetingPdfInfo(meetingId: string, userId: string) {
     if (!meeting) return null;
 
     // Check if user is authorized (organizer or participant)
-    const isOrganizer = meeting.organizerId === userId;
-    const isParticipant = meeting.participants?.some((p: any) => {
-      // Get user email from database to match with participant
-      return p.email; // We'll do a more thorough check below
-    });
+    // Handle both string and ObjectId formats for organizerId
+    const { userIdStr } = getUserIdVariants(userId);
+    const isOrganizer = 
+      (typeof meeting.organizerId === 'string' && meeting.organizerId === userIdStr) ||
+      (meeting.organizerId instanceof ObjectId && meeting.organizerId.toString() === userIdStr) ||
+      (typeof meeting.organizerId === 'object' && meeting.organizerId?.toString() === userIdStr);
 
-    // For now, allow if user exists (we'll verify via user email)
-    // Get user to check email
-    const user = await db.collection("users").findOne({ _id: new ObjectId(userId) });
+    // Get user to check email for participant access
+    const user = await db.collection("users").findOne({ _id: new ObjectId(userIdStr) });
     if (!user) return null;
 
     const userEmail = user.email?.toLowerCase();

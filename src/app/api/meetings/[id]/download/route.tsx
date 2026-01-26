@@ -5,6 +5,7 @@ import { ObjectId } from "mongodb";
 import { PDFDocument } from "pdf-lib";
 import { readFile } from "fs/promises";
 import path from "path";
+import { getUserIdVariants } from "@/lib/auth-helpers";
 
 export const runtime = "nodejs";
 
@@ -49,13 +50,17 @@ export async function POST(
     }
 
     // Check if user has access
-    const userDoc = await db.collection("users").findOne({ _id: new ObjectId(user.id) });
+    const { userIdStr, organizerIdQuery } = getUserIdVariants(user.id);
+    const userDoc = await db.collection("users").findOne({ _id: new ObjectId(userIdStr) });
     if (!userDoc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const userEmail = userDoc.email?.toLowerCase();
-    const isOrganizer = meeting.organizerId === user.id;
+    const isOrganizer = 
+      (typeof meeting.organizerId === 'string' && meeting.organizerId === userIdStr) ||
+      (meeting.organizerId instanceof ObjectId && meeting.organizerId.toString() === userIdStr) ||
+      (typeof meeting.organizerId === 'object' && meeting.organizerId?.toString() === userIdStr);
     const isParticipant = meeting.participants?.some(
       (p: any) => p.email?.toLowerCase() === userEmail
     );
