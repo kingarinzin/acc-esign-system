@@ -79,11 +79,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const db = client.db("e_sign_db");
 
     const meeting = await db.collection("meetings").findOne(
-      { _id: new ObjectId(id), organizerId: user.id },
-      { projection: { fields: 1 } }
+      { _id: new ObjectId(id) },
+      { projection: { fields: 1, organizerId: 1 } }
     );
 
     if (!meeting) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+
+    // Check if user is the organizer (organizerId could be string or ObjectId)
+    const organizerId = typeof meeting.organizerId === 'string' 
+      ? meeting.organizerId 
+      : meeting.organizerId?.toString();
+    
+    if (organizerId !== user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     return NextResponse.json({ fields: (meeting as any).fields || [] });
   } catch (err) {
@@ -117,8 +126,27 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
+    // First check if meeting exists and user is authorized
+    const meeting = await db.collection("meetings").findOne(
+      { _id: new ObjectId(id) },
+      { projection: { organizerId: 1 } }
+    );
+
+    if (!meeting) {
+      return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+    }
+
+    // Check if user is the organizer (organizerId could be string or ObjectId)
+    const organizerId = typeof meeting.organizerId === 'string' 
+      ? meeting.organizerId 
+      : meeting.organizerId?.toString();
+    
+    if (organizerId !== user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     const result = await db.collection("meetings").updateOne(
-      { _id: new ObjectId(id), organizerId: user.id },
+      { _id: new ObjectId(id) },
       { $set: { fields: normalized, updatedAt: new Date() } }
     );
 

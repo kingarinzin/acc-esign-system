@@ -3,13 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-const PdfRenderer = dynamic(() => import("./PdfRenderer"), { ssr: false });
-import { Document, Page, pdfjs } from "react-pdf";
 
-// Set worker for thumbnails
-if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-}
+const PdfRenderer = dynamic(() => import("./PdfRenderer"), { ssr: false });
+const PrepareThumbnails = dynamic(() => import("./PrepareThumbnails"), { ssr: false });
 
 import {
   Type,
@@ -37,42 +33,9 @@ interface Field {
 
 type PageRect = { w: number; h: number };
 
-function PageWrapper({
-  pageNumber,
-  children,
-  onRect,
-}: {
-  pageNumber: number;
-  children: React.ReactNode;
-  onRect: (page: number, w: number, h: number) => void;
-}) {
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    const update = () => {
-      const r = node.getBoundingClientRect();
-      onRect(pageNumber, r.width, r.height);
-    };
-
-    update();
-
-    const ro = new ResizeObserver(() => update());
-    ro.observe(node);
-
-    return () => ro.disconnect();
-  }, [pageNumber, onRect]);
-
-  return (
-    <div
-      ref={ref}
-      className="relative bg-white shadow-2xl border border-gray-300"
-    >
-      {children}
-    </div>
-  );
+// Helper function to generate unique IDs (client-side only)
+function makeId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export default function PreparePage() {
@@ -86,7 +49,6 @@ export default function PreparePage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [numPages, setNumPages] = useState<number>(0);
-  const [thumbnailBlobUrl, setThumbnailBlobUrl] = useState<string>("");
 
   // Track each page container size for px conversion
   const [pageRects, setPageRects] = useState<Record<number, PageRect>>({});
@@ -143,60 +105,29 @@ export default function PreparePage() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
-  // Fetch PDF for thumbnails
+  // --- Fetch fields ---
+  // --- Fetch fields ---
   useEffect(() => {
-    let alive = true;
-    let localBlobUrl = "";
-
-    async function fetchPdfForThumbnails() {
-      if (!id) return;
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
+    async function fetchFields() {
       try {
-        const res = await fetch(`/api/meetings/${id}/pdf`, {
-          method: "POST",
+        const token = localStorage.getItem("token");
+        const res = await fetch(`/api/meetings/${id}/fields`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) return;
-        const blob = await res.blob();
-        localBlobUrl = URL.createObjectURL(blob);
-        if (alive) setThumbnailBlobUrl(localBlobUrl);
+        const data = await res.json();
+        if (res.ok) setFields(Array.isArray(data.fields) ? data.fields : []);
       } catch (err) {
-        console.error("Error fetching PDF for thumbnails:", err);
+        console.error("Error fetching fields:", err);
       }
     }
-
-    fetchPdfForThumbnails();
-    return () => {
-      alive = false;
-      if (localBlobUrl) URL.revokeObjectURL(localBlobUrl);
-    };
+    if (id) fetchFields();
   }, [id]);
 
-  const addField = (type: FieldType) => {
-    // Default: place on page 1 (or first page)
-    const page = 1;
+  // Load user signature from API
+  const [userSignature, setUserSignature] = useState<string | null>(null);
 
-    setFields((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        type,
-        page,
-        xPct: 0.1,
-        yPct: 0.1,
-        wPct: 0.25,
-        hPct: 0.08,
-      },
-    ]);
-  };
-
-  // Inside PreparePage.tsx
-const [userSignature, setUserSignature] = useState<string | null>(null);
-
-useEffect(() => {
-  async function loadUserSignature() {
+  useEffect(() => {
+    async function loadUserSignature() {
     // Try to get from localStorage first (fast)
     const localSig = localStorage.getItem("userSignature");
     if (localSig) setUserSignature(localSig);
@@ -215,22 +146,21 @@ useEffect(() => {
   loadUserSignature();
 }, []);
 
-    useEffect(() => {
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") setPlacingType(null);
-  };
-  window.addEventListener("keydown", onKeyDown);
-  return () => window.removeEventListener("keydown", onKeyDown);
-}, []);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPlacingType(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
-
-  const removeField = (fieldId: string) => {
+    const removeField = (fieldId: string) => {
     setFields((prev) => prev.filter((f) => f.id !== fieldId));
   };
 
   const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-  const pxFromPct = (
+    const pxFromPct = (
     page: number,
     xPct: number,
     yPct: number,
@@ -400,37 +330,17 @@ useEffect(() => {
           <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
             Pages
           </h3>
-          {thumbnailBlobUrl ? (
-            <Document file={thumbnailBlobUrl}>
-              <div className="space-y-2">
-                {Array.from({ length: numPages }, (_, i) => (
-                  <div
-                    key={i + 1}
-                    className="border border-gray-300 rounded p-2 bg-gray-50 hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition"
-                    onClick={() => {
-                      const pageElement = document.getElementById(`pdf-page-${i + 1}`);
-                      if (pageElement) {
-                        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    }}
-                  >
-                    <div className="text-[10px] font-semibold text-gray-600 mb-1">
-                      Page {i + 1}
-                    </div>
-                    <div className="w-full bg-white border border-gray-200 rounded overflow-hidden">
-                      <Page
-                        pageNumber={i + 1}
-                        width={140}
-                        renderTextLayer={false}
-                        renderAnnotationLayer={false}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Document>
-          ) : (
-            <div className="text-[10px] text-gray-400 text-center py-4">Loading...</div>
+          {numPages > 0 && (
+            <PrepareThumbnails 
+              meetingId={id}
+              numPages={numPages}
+              onPageClick={(pageNumber) => {
+                const pageElement = document.getElementById(`pdf-page-${pageNumber}`);
+                if (pageElement) {
+                  pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            />
           )}
         </aside>
 

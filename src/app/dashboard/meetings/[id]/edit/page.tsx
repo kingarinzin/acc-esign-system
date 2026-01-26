@@ -2,68 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Document, Page, pdfjs } from "react-pdf";
+import dynamic from "next/dynamic";
 import { 
   Plus, X, FileText, Upload, Trash2, 
   Save, Play, Send, CheckCircle2, Loader2, ArrowLeft
 } from "lucide-react";
 
-// Initialize PDF Worker
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+const EditPdfClient = dynamic(() => import("./EditPdfClient"), { ssr: false });
 
 interface Participant {
   name: string;
   email: string;
   role: string;
-}
-
-/**
- * Enhanced Thumbnail Component 
- * Handles both local file selection and remote fetching for preview.
- */
-function DocumentThumbnail({ file, meetingId }: { file: File | null; meetingId: string }) {
-  const [source, setSource] = useState<string | null>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    async function loadPdf() {
-      if (file) {
-        setSource(URL.createObjectURL(file));
-        return;
-      }
-
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`/api/meetings/${meetingId}/pdf`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (!res.ok) throw new Error("Not found");
-
-        const blob = await res.blob();
-        // Verify it's actually a PDF
-        if (blob.type !== "application/pdf") {
-            console.error("Fetched file is not a PDF");
-            setError(true);
-            return;
-        }
-
-        setSource(URL.createObjectURL(blob));
-      } catch (err) {
-        setError(true);
-      }
-    }
-    loadPdf();
-  }, [file, meetingId]);
-
-  if (error) return <FileText className="w-10 h-10 text-red-300 mx-auto" />;
-  if (!source) return <Loader2 className="animate-spin text-indigo-500" />;
-
-  return (
-    <Document file={source}>
-      <Page pageNumber={1} width={180} renderTextLayer={false} renderAnnotationLayer={false} />
-    </Document>
-  );
 }
 
 export default function EditMeetingPage() {
@@ -207,7 +157,7 @@ export default function EditMeetingPage() {
             <div className="w-52 h-72 border-2 border-gray-200 rounded-xl flex flex-col items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 relative group overflow-hidden shadow-lg">
               <div className="w-full h-full relative flex items-center justify-center p-2">
                 {/* The dynamic thumbnail that fetches remote PDF data */}
-                <DocumentThumbnail file={file} meetingId={id} />
+                <EditPdfClient file={file} meetingId={id} />
               </div>
 
               {/* File Info Overlay */}

@@ -8,6 +8,11 @@ import { Document, Page, pdfjs } from "react-pdf";
 // Set worker outside to ensure it only runs once
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
+// Helper function to generate unique IDs (client-side only)
+function makeId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 type FieldType = "signature" | "name" | "date";
 
 export interface Field {
@@ -240,7 +245,7 @@ export default function PdfRenderer({
                   : { wPct: 0.22, hPct: 0.07 };
 
                 const newField: Field = {
-                  id: crypto.randomUUID(),
+                  id: makeId(),
                   type: draggingFieldType,
                   page: pg,
                   xPct,
