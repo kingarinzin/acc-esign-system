@@ -16,11 +16,13 @@ function requireJwtSecret() {
   return secret;
 }
 
-// Create email transporter (configure with your email service)
+// Create email transporter
 function createTransporter() {
-  // Using Gmail as example - configure with your own SMTP settings
+  // Using Gmail
   return nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false, // STARTTLS
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
@@ -49,10 +51,12 @@ export async function POST(
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
-    // Fetch the meeting
+    // Fetch the meeting    
+    const organizerId = new ObjectId(decoded.id);
+
     const meeting = await db.collection("meetings").findOne({
       _id: new ObjectId(meetingId),
-      organizerId: decoded.id,
+      organizerId,
     });
 
     if (!meeting) {
@@ -116,9 +120,22 @@ export async function POST(
                 ${meeting.description}
               </p>
               <div style="margin: 30px 0;">
-                <a href="${signingUrl}" style="background: #4F46E5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Sign Document
-                </a>
+		<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0;">
+		  <tr>
+		    <td bgcolor="#4F46E5" style="border-radius: 6px;">
+		      <a href="${signingUrl}"
+		        style="display:inline-block; padding:12px 30px; font-family: Arial, sans-serif; font-size:14px; color:#ffffff; text-decoration:none; border-radius:6px;">
+		        Sign Document
+		      </a>
+		    </td>
+		  </tr>
+		</table>
+
+		<p style="font-size: 12px; color: #6B7280;">
+		  If the button doesn’t work, copy and paste this link:<br>
+		  <a href="${signingUrl}" style="color:#4F46E5;">${signingUrl}</a>
+		</p>
+
               </div>
               <p style="color: #6B7280; font-size: 14px;">
                 If you don't have an account, you'll be able to create one when you click the link.

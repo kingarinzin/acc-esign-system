@@ -8,6 +8,11 @@ import { Rnd } from "react-rnd";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
+function makeId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+
 export default function SigningView({
   meeting,
   meetingId,
@@ -298,7 +303,7 @@ export default function SigningView({
     setFreeformSignatures(prev => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: makeId(),
         page: pageNum,
         x: x - 70, // Center signature at cursor (assuming 140px width)
         y: y - 25, // Center signature at cursor (assuming 50px height)
