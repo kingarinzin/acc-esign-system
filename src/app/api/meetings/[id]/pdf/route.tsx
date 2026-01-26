@@ -115,6 +115,9 @@ export async function HEAD(req: Request, { params }: { params: Promise<{ id: str
     if ((info as any).error === 'FILE_MISSING') {
       return NextResponse.json({ error: "PDF file is missing from server" }, { status: 404 });
     }
+    if (!info.size) {
+      return NextResponse.json({ error: "Invalid file" }, { status: 500 });
+    }
 
     return new NextResponse(null, {
       status: 200,
@@ -149,6 +152,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
     if ((info as any).error === 'FILE_MISSING') {
       return NextResponse.json({ error: "PDF file is missing from server" }, { status: 404 });
+    }
+    if (!info.size) {
+      return NextResponse.json({ error: "Invalid file" }, { status: 500 });
     }
 
     const range = req.headers.get("range");
@@ -217,6 +223,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     if ((info as any).error === 'FILE_MISSING') {
       return NextResponse.json({ error: "PDF file is missing from server" }, { status: 404 });
+    }
+    if (!info.size) {
+      return NextResponse.json({ error: "Invalid file" }, { status: 500 });
     }
 
     const nodeStream = createReadStream(info.absolute);
