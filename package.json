@@ -7,11 +7,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup:admin": "tsx src/scripts/setup-admin.ts",
+    "migrate:users": "tsx src/scripts/migrate-existing-users.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
+    "dotenv": "^17.2.3",
     "formidable-serverless": "^1.1.1",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.562.0",
@@ -41,6 +44,7 @@
     "eslint-config-next": "16.1.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

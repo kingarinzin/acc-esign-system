@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import SuccessModal from "@/components/SuccessModal";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,12 +33,8 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Redirect to login with returnTo parameter
-        if (returnTo) {
-          router.push(`/login?returnTo=${encodeURIComponent(returnTo)}`);
-        } else {
-          router.push("/login");
-        }
+        // Show success modal
+        setShowSuccessModal(true);
       } else {
         setMessage(data.error || "Signup failed");
       }
@@ -108,6 +106,18 @@ export default function SignupPage() {
           </a>
         </p>
       </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        title="Registration Submitted!"
+        message="Your account has been sent for approval. You will receive an email notification once an administrator approves your account."
+        onClose={() => {
+          setShowSuccessModal(false);
+          router.push("/login");
+        }}
+        buttonText="Go to Login"
+      />
     </div>
   );
 }

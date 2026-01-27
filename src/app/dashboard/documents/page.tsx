@@ -63,7 +63,7 @@ export default function DocumentList() {
       case "I Need to Sign":
         return meetings.filter(m => 
           m.status === "Sent" && 
-          m.participants.some(p => p.email === userEmail && !p.signed)
+          m.participants.some(p => p.email === userEmail && !p.signed && p.isCurrent === true)
         );
       default:
         return meetings;
@@ -144,9 +144,6 @@ export default function DocumentList() {
         {/* Top Navigation Bar */}
         <header className="bg-white shadow-md px-8 py-7.5 flex justify-between items-center sticky top-0 z-10">
           <h1 className="text-xl font-semibold text-indigo-900">Document List</h1>
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center text-xs font-bold text-orange-700">SN</div>
-          </div>
         </header>
 
         <main className="flex-1 w-full mx-auto px-8 py-6">
@@ -184,8 +181,16 @@ export default function DocumentList() {
                     onClick={() => {
                       if (meeting.status === 'Draft') {
                         router.push(`/dashboard/meetings/${meeting._id}/edit`);
-                      } else if (meeting.status === 'Completed' || meeting.status === 'Sent') {
+                      } else if (meeting.status === 'Completed') {
                         router.push(`/view/${meeting._id}`);
+                      } else if (meeting.status === 'Sent') {
+                        // Check if current user needs to sign
+                        const needsToSign = meeting.participants.some(p => p.email === userEmail && !p.signed && p.isCurrent === true);
+                        if (needsToSign) {
+                          router.push(`/sign/${meeting._id}?email=${encodeURIComponent(userEmail)}`);
+                        } else {
+                          router.push(`/view/${meeting._id}`);
+                        }
                       } else if (meeting.status === 'Prepared') {
                         router.push(`/dashboard/prepare/${meeting._id}`);
                       }
@@ -239,13 +244,13 @@ export default function DocumentList() {
                           <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={(e) => handleDelete(meeting._id, e)}
-                              className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded transition"
+                              className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded transition cursor-pointer"
                             >
                               Confirm
                             </button>
                             <button
                               onClick={cancelDelete}
-                              className="bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs font-medium px-3 py-1.5 rounded transition"
+                              className="bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs font-medium px-3 py-1.5 rounded transition cursor-pointer"
                             >
                               Cancel
                             </button>
@@ -253,7 +258,7 @@ export default function DocumentList() {
                         ) : (
                           <button
                             onClick={(e) => handleDelete(meeting._id, e)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
                             title="Delete document"
                           >
                             <Trash2 size={18} />

@@ -17,6 +17,7 @@ import {
   X,
   MousePointer2,
 } from "lucide-react";
+import SuccessModal from "@/components/SuccessModal";
 
 type FieldType = "signature" | "name" | "date";
 
@@ -55,6 +56,8 @@ export default function PreparePage() {
   const [placingType, setPlacingType] = useState<FieldType | null>(null);
   const [draggingFieldType, setDraggingFieldType] = useState<FieldType | null>(null);
   const [selectedRecipient, setSelectedRecipient] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [firstRecipient, setFirstRecipient] = useState("");
 
   // --- Fetch meeting ---
   useEffect(() => {
@@ -251,8 +254,8 @@ export default function PreparePage() {
       }
 
       const data = await res.json();
-      alert(`Document sent successfully! First recipient: ${data.sentTo}`);
-      router.push("/dashboard");
+      setFirstRecipient(data.sentTo || "the first recipient");
+      setShowSuccessModal(true);
     } catch (err: any) {
       alert(err.message || "Failed to send document");
     } finally {
@@ -454,6 +457,18 @@ export default function PreparePage() {
           </div>
         </aside>
       </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        title="Document Sent!"
+        message={`Your document has been successfully sent to ${firstRecipient}. They will receive an email notification to sign the document.`}
+        onClose={() => {
+          setShowSuccessModal(false);
+          router.push("/dashboard");
+        }}
+        buttonText="Back to Dashboard"
+      />
     </div>
   );
 }

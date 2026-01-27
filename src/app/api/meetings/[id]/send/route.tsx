@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
-import nodemailer from "nodemailer";
+const nodemailer = require("nodemailer");
 import { getUserIdVariants } from "@/lib/auth-helpers";
 
 function getBearerToken(req: Request) {

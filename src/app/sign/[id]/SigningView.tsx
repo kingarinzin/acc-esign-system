@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Loader2, Send, PenTool, CheckCircle2, Trash2 } from "lucide-react";
 import { Rnd } from "react-rnd";
+import SuccessModal from "@/components/SuccessModal";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -42,6 +43,9 @@ export default function SigningView({
     height: number;
   }>>([]);
   const [isDraggingSignature, setIsDraggingSignature] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [signSuccessMessage, setSignSuccessMessage] = useState("");
+  const [signatureError, setSignatureError] = useState("");
 
   // Fetch PDF
   useEffect(() => {
@@ -160,13 +164,16 @@ export default function SigningView({
   };
 
   const handleSign = async () => {
+    setSignatureError(""); // Clear any previous errors
+
     // Check if at least one signature is placed (either in field or freeform)
     const mySignatureFields = myFields.filter((f: any) => f.type === 'signature');
     const hasFieldSignatures = mySignatureFields.every((f: any) => placedSignatures[f.id]);
     const hasFreeformSignatures = freeformSignatures.length > 0;
     
     if (!hasFieldSignatures && !hasFreeformSignatures) {
-      alert("Please place your signature on the document before submitting");
+      setSignatureError("Please drag and place your signature on the document before signing");
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -174,7 +181,8 @@ export default function SigningView({
     const finalSignature = userSignature || (hasDrawnSignature ? canvasRef.current?.toDataURL("image/png") : null);
     
     if (!finalSignature) {
-      alert("Please create your signature before signing the document");
+      setSignatureError("Please create your signature before signing the document");
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -206,11 +214,9 @@ export default function SigningView({
 
       const data = await res.json();
       
-      // Show success message
-      alert(data.message || "Document signed successfully!");
-      
-      // Always redirect to dashboard after signing
-      router.push("/dashboard");
+      // Show success modal
+      setSignSuccessMessage(data.message || "Document signed successfully!");
+      setShowSuccessModal(true);
     } catch (err: any) {
       alert(err.message || "Failed to sign document");
     } finally {
@@ -346,6 +352,32 @@ export default function SigningView({
           </button>
         </div>
       </header>
+
+      {/* Error Message */}
+      {signatureError && (
+        <div className="bg-red-50 border-l-4 border-red-500 px-8 py-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center gap-2">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-red-800">{signatureError}</p>
+              </div>
+              <button
+                onClick={() => setSignatureError("")}
+                className="ml-auto text-red-500 hover:text-red-700"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex">
         {/* Left: Page Thumbnails */}
@@ -672,6 +704,18 @@ export default function SigningView({
           )}
         </aside>
       </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        title="Document Signed!"
+        message={signSuccessMessage}
+        onClose={() => {
+          setShowSuccessModal(false);
+          router.push("/dashboard");
+        }}
+        buttonText="Back to Dashboard"
+      />
     </div>
   );
 }

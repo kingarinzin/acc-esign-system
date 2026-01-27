@@ -25,8 +25,14 @@ export default function LoginPage() {
 
       if (res.ok) {
         localStorage.setItem("token", data.token);
-        // Redirect to returnTo URL if present, otherwise dashboard
-        router.push(returnTo || "/dashboard");
+        localStorage.setItem("isAdmin", data.isAdmin ? "true" : "false");
+        
+        // Redirect admin to approval page, regular users to dashboard
+        if (data.isAdmin) {
+          router.push("/admin/pending-users");
+        } else {
+          router.push(returnTo || "/dashboard");
+        }
       } else {
         setMessage(data.error || "Login failed");
       }

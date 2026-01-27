@@ -27,6 +27,43 @@ export async function POST(req: Request) {
       );
     }
 
+    // Auto-approve existing users without approval status (backwards compatibility)
+    if (!user.approvalStatus && !user.isApproved && !user.isAdmin) {
+      await users.updateOne(
+        { _id: user._id },
+        { 
+          $set: { 
+            isApproved: true, 
+            approvalStatus: 'approved' 
+          } 
+        }
+      );
+      user.isApproved = true;
+      user.approvalStatus = 'approved';
+    }
+
+    // Check approval status for new users
+    if (user.approvalStatus === 'pending') {
+      return NextResponse.json(
+        { error: "Your account is pending admin approval" },
+        { status: 403 }
+      );
+    }
+
+    if (user.approvalStatus === 'rejected') {
+      return NextResponse.json(
+        { error: "Your account registration was not approved" },
+        { status: 403 }
+      );
+    }
+
+    if (!user.isApproved && !user.isAdmin) {
+      return NextResponse.json(
+        { error: "Your account is not approved yet" },
+        { status: 403 }
+      );
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -37,12 +74,19 @@ export async function POST(req: Request) {
     }
 
     const token = jwt.sign(
-      { id: user._id.toString(), email: user.email },
+      { 
+        id: user._id.toString(), 
+        email: user.email,
+        isAdmin: user.isAdmin || false 
+      },
       process.env.JWT_SECRET!,
       { expiresIn: "8h" }
     );
 
-    return NextResponse.json({ token });
+    return NextResponse.json({ 
+      token,
+      isAdmin: user.isAdmin || false
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

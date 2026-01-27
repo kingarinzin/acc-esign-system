@@ -85,6 +85,19 @@ useEffect(() => {
       }
     }
     fetchMeetings();
+
+    // Refresh meetings when page becomes visible (e.g., when returning from documents page)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchMeetings();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // 2. Fetch User Signature Profile
