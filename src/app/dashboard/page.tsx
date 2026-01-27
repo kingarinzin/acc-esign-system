@@ -178,7 +178,7 @@ useEffect(() => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Top Navigation Bar */}
-        <header className="bg-white shadow-md px-8 py-7 flex justify-between items-center sticky top-0 z-10">
+        <header className="bg-white shadow-md px-8 py-7 flex justify-between items-center sticky top-0 z-20 -ml-64 pl-72">
           <h1 className="text-xl font-semibold text-indigo-900">Dashboard</h1>
           <div className="flex items-center gap-4">
             <button 

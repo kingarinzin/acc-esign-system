@@ -8,10 +8,32 @@ export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
     const adminStatus = localStorage.getItem("isAdmin") === "true";
     setIsAdmin(adminStatus);
+
+    // Fetch user profile
+    async function loadProfile() {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const res = await fetch("/api/user/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUserName(data.name || "");
+          setUserEmail(data.email || "");
+        }
+      } catch (err) {
+        console.error("Profile load error:", err);
+      }
+    }
+    loadProfile();
   }, []);
 
   const handleLogout = () => {
@@ -38,11 +60,26 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-white shadow-lg h-screen fixed top-0 left-0 flex flex-col overflow-y-auto">
-      <div className="p-6 shadow-sm flex items-center justify-center">
+    <aside className="w-64 bg-white shadow-lg h-screen fixed top-0 left-0 flex flex-col overflow-y-auto z-30">
+      <div className="p-6 shadow-md flex items-center justify-center">
         <img src="/logo.png" alt="e-Sign Logo" className="h-11 w-auto" />
       </div>
-      <nav className="flex-1  p-4 space-y-2">
+
+      {/* User Profile Circle */}
+      <div className="px-4 py-4 border-b">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+            {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              {userEmail}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <nav className="flex-1 p-4 space-y-2">
         {!isAdmin && navItems.map((item) => {
           const isActive = pathname === item.path;
           const Icon = item.icon;
@@ -62,6 +99,16 @@ export default function Sidebar() {
             </button>
           );
         })}
+
+        {!isAdmin && (
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition cursor-pointer"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        )}
         
         {/* Admin Section */}
         {isAdmin && (
@@ -99,18 +146,16 @@ export default function Sidebar() {
               <Settings size={18} />
               Settings
             </button>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition cursor-pointer"
+            >
+              <LogOut size={18} />
+              Logout
+            </button>
           </>
         )}
       </nav>
-      <div className="p-4 border-t">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition cursor-pointer"
-        >
-          <LogOut size={18} />
-          Logout
-        </button>
-      </div>
     </aside>
   );
 }

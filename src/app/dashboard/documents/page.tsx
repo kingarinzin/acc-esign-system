@@ -15,7 +15,7 @@ interface Meeting {
   currentSignerIndex?: number;
 }
 
-type FilterType = "All" | "Drafts" | "Completed" | "I Need to Sign";
+type FilterType = "All" | "Drafts" | "Completed" | "I Need to Sign" | "My Signed Documents";
 
 export default function DocumentList() {
   const router = useRouter();
@@ -65,6 +65,11 @@ export default function DocumentList() {
           m.status === "Sent" && 
           m.participants.some(p => p.email === userEmail && !p.signed && p.isCurrent === true)
         );
+      case "My Signed Documents":
+        return meetings.filter(m => 
+          m.status === "Completed" &&
+          m.participants.some(p => p.email === userEmail && p.signed === true)
+        );
       default:
         return meetings;
     }
@@ -72,7 +77,7 @@ export default function DocumentList() {
 
   const filteredMeetings = getFilteredMeetings();
 
-  const filters: FilterType[] = ["All", "Drafts", "Completed", "I Need to Sign"];
+  const filters: FilterType[] = ["All", "Drafts", "I Need to Sign", "My Signed Documents", "Completed"];
 
   const getStatusBadge = (status: string) => {
     const colors = {
@@ -142,26 +147,47 @@ export default function DocumentList() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Top Navigation Bar */}
-        <header className="bg-white shadow-md px-8 py-7.5 flex justify-between items-center sticky top-0 z-10">
+        <header className="bg-white shadow-md px-8 py-7.5 flex justify-between items-center sticky top-0 z-20 -ml-64 pl-72">
           <h1 className="text-xl font-semibold text-indigo-900">Document List</h1>
         </header>
 
         <main className="flex-1 w-full mx-auto px-8 py-6">
           {/* Filter Tabs */}
           <div className="flex gap-3 mb-6 border-b pb-0">
-            {filters.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`px-6 py-3 text-sm font-medium transition relative cursor-pointer ${
-                  activeFilter === filter
-                    ? 'text-gray-900 border-b-2 border-gray-900'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
+            {filters.map((filter) => {
+              // Get tooltip text for each filter
+              const getTooltip = (filterName: FilterType) => {
+                switch (filterName) {
+                  case "All":
+                    return "All documents you created or participated in";
+                  case "Drafts":
+                    return "Documents you created but haven't sent yet";
+                  case "I Need to Sign":
+                    return "Documents waiting for your signature";
+                  case "My Signed Documents":
+                    return "Completed documents where you were a signer";
+                  case "Completed":
+                    return "Fully signed documents you organized";
+                  default:
+                    return "";
+                }
+              };
+
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  title={getTooltip(filter)}
+                  className={`px-6 py-3 text-sm font-medium transition relative cursor-pointer ${
+                    activeFilter === filter
+                      ? 'text-gray-900 border-b-2 border-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {filter}
+                </button>
+              );
+            })}
           </div>
 
           {/* Documents List */}
