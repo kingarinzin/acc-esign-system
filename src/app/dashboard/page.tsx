@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [signatureImg, setSignatureImg] = useState<string | null>(null);
   const [initialsImg, setInitialsImg] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const sigInputRef = useRef<HTMLInputElement>(null);
   const initialsInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +79,7 @@ useEffect(() => {
         });
         const data = await res.json();
         setMeetings(data.meetings || []);
+        setUserEmail(data.userEmail || null);
       } catch (err) {
         console.error("Failed to fetch meetings:", err);
       } finally {
@@ -122,6 +124,13 @@ useEffect(() => {
     m.status === "Sent" && m.participants.some(p => !p.signed)
   ).length;
   const completedCount = meetings.filter(m => m.status === "Completed").length;
+
+  // Documents I need to sign (where I'm a participant and haven't signed yet)
+  const needToSign = meetings.filter(m => {
+    if (!userEmail) return false;
+    const myParticipant = m.participants.find(p => p.email === userEmail);
+    return myParticipant && !myParticipant.signed && myParticipant.isCurrent;
+  });
 
   // Get signing progress for a meeting
   const getSigningProgress = (meeting: Meeting) => {
@@ -358,6 +367,46 @@ useEffect(() => {
             </div>
           </section>
         </div>
+
+        {/* I Need to Sign Section */}
+        {needToSign.length > 0 && (
+          <section className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+            <div className="px-6 py-3 border-b bg-blue-50 flex justify-between items-center">
+              <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">📝 I Need to Sign</span>
+              <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">{needToSign.length}</span>
+            </div>
+            <div className="divide-y">
+              {needToSign.map(meeting => {
+                const myParticipant = meeting.participants.find(p => p.email === userEmail);
+                return (
+                  <div 
+                    key={meeting._id} 
+                    onClick={() => router.push(`/sign/${meeting._id}`)}
+                    className="flex justify-between p-4 text-sm items-center hover:bg-blue-50 group cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-600 p-1.5 rounded text-white">
+                        <Edit3 size={14} />
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-700 group-hover:text-blue-900 transition-colors">{meeting.title}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">Sent by organizer</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-medium">
+                        Action Required
+                      </span>
+                      <span className="opacity-0 group-hover:opacity-100 text-[10px] text-blue-600 font-bold uppercase transition-opacity">
+                        Sign Now →
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
         </main>
       </div>
     </div>

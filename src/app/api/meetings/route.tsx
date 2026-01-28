@@ -59,13 +59,38 @@ export async function GET(req: Request) {
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
-    const meetings = await db
+    // Get user's email for participant matching
+    const usersDb = db.collection("users");
+    const user = await usersDb.findOne({ _id: new ObjectId(decoded.id) });
+    const userEmail = user?.email;
+
+    // Fetch meetings where user is organizer
+    const organizedMeetings = await db
       .collection("meetings")
       .find({ organizerId: organizerIdQuery })
       .sort({ createdAt: -1 })
       .toArray();
 
-    return NextResponse.json({ meetings });
+    // Fetch meetings where user is a participant (if email found)
+    let participantMeetings: any[] = [];
+    if (userEmail) {
+      participantMeetings = await db
+        .collection("meetings")
+        .find({ 
+          "participants.email": userEmail,
+          organizerId: { $nin: [new ObjectId(decoded.id), decoded.id] } // Exclude if also organizer
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+    }
+
+    // Combine both lists
+    const allMeetings = [...organizedMeetings, ...participantMeetings];
+
+    return NextResponse.json({ 
+      meetings: allMeetings,
+      userEmail // Include for client-side filtering if needed
+    });
   } catch (err) {
     console.error("MEETINGS GET ERROR:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
