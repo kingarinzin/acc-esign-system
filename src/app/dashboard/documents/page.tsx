@@ -147,6 +147,7 @@ export default function DocumentList() {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`/api/meetings/${meetingId}/download`, {
+        method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
 

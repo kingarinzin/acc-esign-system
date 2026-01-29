@@ -44,12 +44,13 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-[#00083d]">
       {/* Card */}
       <div className="bg-white shadow-2xl border border-gray-200 rounded-3xl p-10 w-full max-w-md">
         {/* Logo */}
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center items-center gap-3 mb-6">
           <img src="/logo.png" alt="e-Sign Logo" className="h-16 w-auto" />
+          <span className="text-3xl font-bold text-gray-800">e-Sign</span>
         </div>
         
         {/* Header */}
@@ -66,7 +67,7 @@ export default function SignupPage() {
             value={email}
             required
             onChange={(e) => setEmail(e.target.value)}
-            className="p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00083d] transition"
           />
           <input
             type="password"
@@ -74,7 +75,7 @@ export default function SignupPage() {
             value={password}
             required
             onChange={(e) => setPassword(e.target.value)}
-            className="p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00083d] transition"
           />
           <input
             type="password"
@@ -82,11 +83,11 @@ export default function SignupPage() {
             value={confirmPassword}
             required
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+            className="p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00083d] transition"
           />
           <button
             type="submit"
-            className="p-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition"
+            className="p-3 bg-[#00083d] text-white rounded-xl font-semibold hover:bg-[#00083d]/90 transition cursor-pointer"
           >
             Sign Up
           </button>
@@ -100,7 +101,7 @@ export default function SignupPage() {
           Already have an account?{" "}
           <a 
             href={returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login"} 
-            className="text-indigo-600 hover:underline"
+            className="text-[#00083d] hover:underline"
           >
             Login
           </a>
