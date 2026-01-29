@@ -93,7 +93,10 @@ export default function LoginPage() {
             Sign Up
           </a>
         </p>
-      </div>
+        {/* Copyright */}
+        <p className="text-center mt-6 text-xs text-gray-400">
+          © {new Date().getFullYear()} Anti-Corruption Commission
+        </p>      </div>
     </div>
   );
 }

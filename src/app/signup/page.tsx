@@ -106,6 +106,11 @@ export default function SignupPage() {
             Login
           </a>
         </p>
+
+        {/* Copyright */}
+        <p className="text-center mt-6 text-xs text-gray-400">
+          © {new Date().getFullYear()} Anti-Corruption Commission
+        </p>
       </div>
 
       {/* Success Modal */}
