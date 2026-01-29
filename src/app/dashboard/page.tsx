@@ -188,14 +188,14 @@ useEffect(() => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Top Navigation Bar */}
-        <header className="bg-white shadow-md px-8 py-7 flex justify-between items-center sticky top-0 z-20 -ml-64 pl-72">
-          <h1 className="text-xl font-semibold text-indigo-900">Dashboard</h1>
+        <header className="bg-white px-8 py-7 flex justify-between items-center sticky top-0 z-20 -ml-64 pl-72">
+          <h1 className="text-xl font-semibold text-gray-800">Dashboard</h1>
           <div className="flex items-center gap-4">
             <button 
               onClick={() => router.push("/dashboard/new-meeting")}
-              className="bg-[#0015ff] cursor-pointer text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-800 transition shadow-lg shadow-blue-100"
+              className="bg-[#1a2b4a] cursor-pointer text-white px-4 py-2 rounded text-sm font-medium flex items-center gap-2 hover:bg-[#2a3b5a] transition"
             >
-              New Meeting +
+              New Document +
             </button>
           </div>
         </header>
@@ -206,41 +206,55 @@ useEffect(() => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Documents Status */}
-          <section className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-            <div className="px-6 py-3 border-b bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Documents Overview
+          <section className="bg-white overflow-hidden border border-gray-200">
+            <div className="px-6 py-4 bg-gray-100 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-800">Documents</h3>
             </div>
-            <div>
-              <div className="flex items-center justify-between p-4 border-b hover:bg-gray-50 transition cursor-default">
-                <div className="flex items-center gap-3">
-                  <div className="bg-orange-500 p-1.5 rounded text-white"><AlertCircle size={18} /></div>
-                  <span className="text-sm font-medium text-gray-700">Drafts</span>
-                </div>
-                <span className="text-sm font-bold text-gray-900">{drafts.length}</span>
-              </div>
-              <div className="flex items-center justify-between p-4 border-b hover:bg-gray-50 transition cursor-default">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-500 p-1.5 rounded text-white"><Clock size={18} /></div>
-                  <span className="text-sm font-medium text-gray-700">Pending Actions</span>
-                </div>
-                <span className="text-sm font-bold text-gray-900">{pendingCount}</span>
-              </div>
-              <div className="flex items-center justify-between p-4 hover:bg-gray-50 transition cursor-default">
-                <div className="flex items-center gap-3">
-                  <div className="bg-green-600 p-1.5 rounded text-white"><CheckCircle2 size={18} /></div>
-                  <span className="text-sm font-medium text-gray-700">Completed</span>
-                </div>
-                <span className="text-sm font-bold text-gray-900">{completedCount}</span>
-              </div>
-            </div>
+            <table className="w-full">
+              <tbody>
+                <tr className="border-b">
+                  <td className="p-4 bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-red-500 p-2 rounded text-white"><AlertCircle size={20} /></div>
+                      <span className="text-sm font-medium text-gray-800">Awaiting my signature</span>
+                    </div>
+                  </td>
+                  <td className="p-4 text-right bg-gray-50">
+                    <span className="text-sm font-semibold text-gray-900">{drafts.length}</span>
+                  </td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-4 bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-gray-500 p-2 rounded text-white"><Clock size={20} /></div>
+                      <span className="text-sm font-medium text-gray-800">Waiting for others</span>
+                    </div>
+                  </td>
+                  <td className="p-4 text-right bg-gray-50">
+                    <span className="text-sm font-semibold text-gray-900">{pendingCount}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="p-4 bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-700 p-2 rounded text-white"><CheckCircle2 size={20} /></div>
+                      <span className="text-sm font-medium text-gray-800">Completed</span>
+                    </div>
+                  </td>
+                  <td className="p-4 text-right bg-gray-50">
+                    <span className="text-sm font-semibold text-gray-900">{completedCount}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </section>
 
           {/* Recent Activity */}
-          <section className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-            <div className="px-6 py-3 border-b bg-gray-50 flex justify-between items-center">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Recent Activity</span>
+          <section className="bg-gray-50 overflow-hidden border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-800">Recent activity</h3>
             </div>
-            <div className="p-4 space-y-4 min-h-40">
+            <div className="p-4 space-y-4 min-h-40 bg-white">
               {meetings.length > 0 ? (
                 meetings.slice(0, 4).map((m, i) => {
                   const progress = getSigningProgress(m);
@@ -287,13 +301,13 @@ useEffect(() => {
           <div className="space-y-4">
             <div 
               onClick={() => sigInputRef.current?.click()}
-              className="bg-white border rounded-xl p-4 flex justify-between items-start shadow-sm relative overflow-hidden h-28 cursor-pointer hover:border-indigo-400 transition group"
+              className="bg-gray-50 border border-gray-300 p-4 flex justify-between items-start relative overflow-hidden h-28 cursor-pointer hover:bg-gray-100 transition group"
             >
               <input type="file" ref={sigInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'signature')} />
               <div className="z-10">
-                <h4 className="text-xs font-bold text-gray-400 uppercase">My Signature</h4>
-                <button className="text-[10px] text-blue-600 mt-1 flex items-center gap-1 group-hover:underline">
-                  <Edit2 size={10} /> {signatureImg ? 'Change' : 'Upload'}
+                <h4 className="text-xs font-semibold text-gray-700">My Signature</h4>
+                <button className="text-xs text-blue-600 mt-1 flex items-center gap-1 hover:underline">
+                  Edit
                 </button>
               </div>
               <div className="absolute right-8 top-0 bottom-0 flex items-center justify-center w-1/2">
@@ -310,13 +324,13 @@ useEffect(() => {
 
             <div 
               onClick={() => initialsInputRef.current?.click()}
-              className="bg-white border rounded-xl p-4 flex justify-between items-start shadow-sm relative overflow-hidden h-28 cursor-pointer hover:border-indigo-400 transition group"
+              className="bg-gray-50 border border-gray-300 p-4 flex justify-between items-start relative overflow-hidden h-28 cursor-pointer hover:bg-gray-100 transition group"
             >
               <input type="file" ref={initialsInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'initials')} />
               <div className="z-10">
-                <h4 className="text-xs font-bold text-gray-400 uppercase">My Initials</h4>
-                <button className="text-[10px] text-blue-600 mt-1 flex items-center gap-1 group-hover:underline">
-                  <Edit2 size={10} /> {initialsImg ? 'Change' : 'Upload'}
+                <h4 className="text-xs font-semibold text-gray-700">My Initials</h4>
+                <button className="text-xs text-blue-600 mt-1 flex items-center gap-1 hover:underline">
+                  Edit
                 </button>
               </div>
               <div className="absolute right-12 top-0 bottom-0 flex items-center justify-center w-1/3">
@@ -333,9 +347,9 @@ useEffect(() => {
           </div>
 
           {/* Recent Drafts List */}
-          <section className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm self-stretch flex flex-col">
-            <div className="px-6 py-3 border-b bg-gray-50 flex justify-between items-center">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Recent Drafts</span>
+          <section className="bg-gray-50 overflow-hidden border border-gray-200 self-stretch flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-800">Recent Drafts</h3>
               {drafts.length > 0 && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">{drafts.length} Total</span>}
             </div>
             <div className="flex-1 bg-white min-h-56">
@@ -344,11 +358,11 @@ useEffect(() => {
                   <div 
                     key={draft._id} 
                     onClick={() => router.push(`/dashboard/meetings/${draft._id}/edit`)} 
-                    className="flex justify-between p-4 border-b text-sm items-center hover:bg-indigo-50 group cursor-pointer transition-colors"
+                    className="flex justify-between p-4 border-b text-sm items-center hover:bg-gray-50 group cursor-pointer transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <Edit3 size={14} className="text-gray-400 group-hover:text-indigo-600" />
-                      <span className="font-medium text-gray-700 group-hover:text-indigo-900 transition-colors">{draft.title}</span>
+                      <Edit3 size={14} className="text-gray-400 group-hover:text-blue-600" />
+                      <span className="font-medium text-gray-700 group-hover:text-gray-900 transition-colors">{draft.title}</span>
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="text-gray-400 text-xs">

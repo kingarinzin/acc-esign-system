@@ -132,7 +132,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className=" cursor-pointer w-full bg-[#1a2b4a] text-white py-3 rounded-lg font-semibold hover:bg-[#2d446e] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading && <Loader2 className="animate-spin" size={18} />}
               Change Password

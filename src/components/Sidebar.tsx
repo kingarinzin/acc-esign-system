@@ -60,19 +60,19 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-white shadow-lg h-screen fixed top-0 left-0 flex flex-col overflow-y-auto z-30">
-      <div className="p-6 shadow-md flex items-center justify-center">
+    <aside className="w-64 bg-[#1a2b4a] shadow-lg h-screen fixed top-0 left-0 flex flex-col overflow-y-auto z-30">
+      <div className="p-6 border-b border-[#2a3b5a] flex items-center justify-center">
         <img src="/logo.png" alt="e-Sign Logo" className="h-11 w-auto" />
       </div>
 
       {/* User Profile Circle */}
-      <div className="px-4 py-4 border-b">
+      <div className="px-4 py-4 border-b border-[#2a3b5a]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
             {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">
+            <p className="text-sm font-semibold text-white truncate">
               {userEmail}
             </p>
           </div>
@@ -88,10 +88,10 @@ export default function Sidebar() {
             <button
               key={item.path}
               onClick={() => router.push(item.path)}
-              className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm transition ${
+              className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 font-medium text-sm transition ${
                 isActive
-                  ? "bg-indigo-50 text-indigo-700"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-blue-500 text-white"
+                  : "text-gray-300 hover:bg-[#2a3b5a]"
               }`}
             >
               <Icon size={18} />
@@ -103,7 +103,7 @@ export default function Sidebar() {
         {!isAdmin && (
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition cursor-pointer"
+            className="w-full flex items-center gap-3 px-4 py-3 font-medium text-sm text-red-400 hover:bg-[#2a3b5a] transition cursor-pointer"
           >
             <LogOut size={18} />
             Logout
@@ -115,10 +115,10 @@ export default function Sidebar() {
           <>
             <button
               onClick={() => router.push("/admin/pending-users")}
-              className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm transition ${
+              className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 font-medium text-sm transition ${
                 pathname === "/admin/pending-users"
-                  ? "bg-purple-50 text-purple-700"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-blue-500 text-white"
+                  : "text-gray-300 hover:bg-[#2a3b5a]"
               }`}
             >
               <Shield size={18} />
@@ -126,10 +126,10 @@ export default function Sidebar() {
             </button>
             <button
               onClick={() => router.push("/admin/all-users")}
-              className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm transition ${
+              className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 font-medium text-sm transition ${
                 pathname === "/admin/all-users"
-                  ? "bg-purple-50 text-purple-700"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-blue-500 text-white"
+                  : "text-gray-300 hover:bg-[#2a3b5a]"
               }`}
             >
               <Users size={18} />
@@ -137,10 +137,10 @@ export default function Sidebar() {
             </button>
             <button
               onClick={() => router.push("/settings")}
-              className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm transition ${
+              className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 font-medium text-sm transition ${
                 pathname === "/settings"
-                  ? "bg-indigo-50 text-indigo-700"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-blue-500 text-white"
+                  : "text-gray-300 hover:bg-[#2a3b5a]"
               }`}
             >
               <Settings size={18} />
@@ -148,7 +148,7 @@ export default function Sidebar() {
             </button>
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition cursor-pointer"
+              className="w-full flex items-center gap-3 px-4 py-3 font-medium text-sm text-red-400 hover:bg-[#2a3b5a] transition cursor-pointer"
             >
               <LogOut size={18} />
               Logout

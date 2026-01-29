@@ -217,7 +217,7 @@ export async function POST(
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                   <h2 style="color: #10B981;">Document Fully Signed!</h2>
-                  <p>Hello ${organizer.name},</p>
+                  <p>Hello ${organizer?.name || 'there'},</p>
                   <p>Great news! All participants have signed your document:</p>
                   <div style="background: #F3F4F6; padding: 15px; border-radius: 8px; margin: 20px 0;">
                     <strong>Document:</strong> ${meeting.title}
