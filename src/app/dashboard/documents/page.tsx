@@ -92,9 +92,9 @@ export default function DocumentList() {
 
   const getStatusBadge = (status: string) => {
     const colors = {
-      Draft: 'bg-gray-600',
-      Prepared: 'bg-blue-600',
-      Sent: 'bg-purple-600',
+      Draft: 'bg-amber-600',
+      Prepared: 'bg-indigo-600',
+      Sent: 'bg-blue-600',
       Completed: 'bg-green-700'
     };
     return colors[status as keyof typeof colors] || 'bg-gray-600';

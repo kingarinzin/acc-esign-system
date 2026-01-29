@@ -143,7 +143,7 @@ export default function NewMeetingPage() {
           <button
             disabled={isSubmitting}
             onClick={() => handleSubmit(true)}
-            className="cursor-pointer px-6 py-2 text-sm font-medium text-white bg-blue-700 rounded-full hover:bg-blue-800 transition shadow-md flex items-center gap-2 disabled:opacity-50"
+            className="cursor-pointer px-6 py-2 text-sm font-medium text-white bg-[#1a2b4a] rounded-full hover:bg-[#0f1b2e] transition shadow-md flex items-center gap-2 disabled:opacity-50"
           >
             {isSubmitting && <Loader2 className="animate-spin" size={16} />}
             Prepare
@@ -221,7 +221,7 @@ export default function NewMeetingPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                className="cursor-pointer bg-[#1a2b4a] hover:bg-[#0f1b2e] text-white px-6 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
               >
                 <Upload size={16} />
                 {file ? "Change Document" : "Choose File"}

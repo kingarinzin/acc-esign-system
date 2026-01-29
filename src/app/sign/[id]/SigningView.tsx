@@ -342,7 +342,7 @@ export default function SigningView({
           <button
             onClick={handleSign}
             disabled={signing || (!userSignature && !hasDrawnSignature)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="bg-[#1a2b4a] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#0f1b2e] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {signing ? (
               <><Loader2 className="animate-spin" size={16} /> Signing...</>
@@ -668,7 +668,7 @@ export default function SigningView({
                   <button
                     onClick={saveSignature}
                     disabled={!hasDrawnSignature}
-                    className="flex-1 text-xs bg-blue-600 text-white rounded py-1.5 hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 text-xs bg-[#1a2b4a] text-white rounded py-1.5 hover:bg-[#0f1b2e] disabled:opacity-50"
                   >
                     Save
                   </button>

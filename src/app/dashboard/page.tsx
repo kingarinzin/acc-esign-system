@@ -260,7 +260,7 @@ useEffect(() => {
                   const progress = getSigningProgress(m);
                   const statusColor = m.status === 'Completed' ? 'text-green-600' : 
                                      m.status === 'Sent' ? 'text-blue-600' : 
-                                     m.status === 'Prepared' ? 'text-orange-600' : 'text-gray-600';
+                                     m.status === 'Prepared' ? 'text-indigo-600' : 'text-amber-600';
                   
                   return (
                     <div key={i} className="text-xs text-gray-600 border-b border-gray-50 pb-2">

@@ -316,7 +316,7 @@ export default function PreparePage() {
         <button
           onClick={handleFinishAndSend}
           disabled={isSaving || !fileUrl}
-          className="bg-[#0015ff] text-white px-8 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-blue-800 transition shadow-lg shadow-blue-200 disabled:opacity-50"
+          className="bg-[#1a2b4a] text-white px-8 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#0f1b2e] transition shadow-lg shadow-blue-200 disabled:opacity-50"
         >
           {isSaving ? (
             <Loader2 className="animate-spin" size={16} />
