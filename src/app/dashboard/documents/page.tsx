@@ -13,6 +13,7 @@ interface Meeting {
   participants: { name: string; email: string; signed: boolean; isCurrent?: boolean }[];
   sentAt?: string;
   currentSignerIndex?: number;
+  createdAt?: string;
 }
 
 type FilterType = "All" | "Drafts" | "Completed" | "I Need to Sign" | "My Signed Documents";
@@ -198,7 +199,7 @@ export default function DocumentList() {
                   .map(p => p.name || p.email)
                   .join(", ");
                 
-                const createdDate = formatDate(meeting.date);
+                const createdDate = meeting.createdAt ? formatDate(meeting.createdAt) : null;
                 const statusDate = meeting.sentAt ? formatDate(meeting.sentAt) : null;
                 
                 return (

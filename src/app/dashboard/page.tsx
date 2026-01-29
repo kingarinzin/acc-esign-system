@@ -22,6 +22,7 @@ interface Meeting {
   participants: { name: string; email: string; signed: boolean; isCurrent?: boolean }[];
   sentAt?: string;
   currentSignerIndex?: number;
+  createdAt?: string;
 }
 
 export default function Dashboard() {
@@ -254,7 +255,7 @@ useEffect(() => {
                           <span className="font-semibold text-indigo-900">{m.title}</span>
                         </span>
                         <span className="text-gray-400 text-[10px]">
-                          {m.sentAt ? new Date(m.sentAt).toLocaleDateString() : new Date(m.date).toLocaleDateString()}
+                          {m.sentAt ? new Date(m.sentAt).toLocaleDateString() : (m.createdAt ? new Date(m.createdAt).toLocaleDateString() : '')}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -351,7 +352,7 @@ useEffect(() => {
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="text-gray-400 text-xs">
-                        {new Date(draft.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {draft.createdAt ? new Date(draft.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
                       </span>
                       <span className="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-600 font-bold uppercase transition-opacity">
                         Edit
