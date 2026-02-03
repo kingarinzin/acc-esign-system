@@ -61,9 +61,8 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-[#1a2b4a] shadow-lg h-screen fixed top-0 left-0 flex flex-col overflow-y-auto z-30">
-      <div className="p-6 flex items-center justify-center gap-3">
-        <img src="/logo.png" alt="e-Sign Logo" className="h-11 w-auto" />
-        <span className="text-2xl font-bold text-white">e-Sign</span>
+      <div className="p-6 flex items-center justify-center">
+        <img src="/logo.png" alt="e-Sign Logo" className="h-15 w-auto" />
       </div>
 
       {/* User Profile Circle */}
