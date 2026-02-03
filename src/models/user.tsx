@@ -12,5 +12,6 @@ export interface User {
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   approvedBy?: ObjectId;
   approvedAt?: Date;
+  isActive?: boolean;
   createdAt: Date;
 }

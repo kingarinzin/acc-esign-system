@@ -64,6 +64,14 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check if user is active (defaults to true for backward compatibility)
+    if (user.isActive === false) {
+      return NextResponse.json(
+        { error: "Your account has been deactivated. Please contact the administrator." },
+        { status: 403 }
+      );
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {

@@ -61,13 +61,12 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-[#1a2b4a] shadow-lg h-screen fixed top-0 left-0 flex flex-col overflow-y-auto z-30">
-      <div className="p-6 border-b border-[#2a3b5a] flex items-center justify-center gap-3">
-        <img src="/logo.png" alt="e-Sign Logo" className="h-11 w-auto" />
-        <span className="text-2xl font-bold text-white">e-Sign</span>
+      <div className="p-6 flex items-center justify-center">
+        <img src="/logo.png" alt="e-Sign Logo" className="h-15 w-auto" />
       </div>
 
       {/* User Profile Circle */}
-      <div className="px-4 py-4 border-b border-[#2a3b5a]">
+      <div className="px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
             {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
