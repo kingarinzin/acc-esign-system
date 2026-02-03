@@ -46,8 +46,9 @@ function LoginForm() {
       {/* Card */}
       <div className="bg-white shadow-2xl border border-gray-200 rounded-3xl p-10 w-full max-w-md">
         {/* Logo */}
-        <div className="flex justify-center items-center mb-6">
+        <div className="flex justify-center items-center gap-3 mb-6">
           <img src="/logo.png" alt="e-Sign Logo" className="h-16 w-auto" />
+          <span className="text-3xl font-bold text-gray-800">e-Sign</span>
         </div>
         
         {/* Header */}
