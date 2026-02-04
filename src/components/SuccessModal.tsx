@@ -9,6 +9,7 @@ interface SuccessModalProps {
   message: string;
   onClose: () => void;
   buttonText?: string;
+  showButton?: boolean;
 }
 
 export default function SuccessModal({
@@ -17,6 +18,7 @@ export default function SuccessModal({
   message,
   onClose,
   buttonText = "OK",
+  showButton = true,
 }: SuccessModalProps) {
   useEffect(() => {
     if (isOpen) {
@@ -67,12 +69,14 @@ export default function SuccessModal({
         </p>
 
         {/* Button */}
-        <button
-          onClick={onClose}
-          className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition"
-        >
-          {buttonText}
-        </button>
+        {showButton && (
+          <button
+            onClick={onClose}
+            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition"
+          >
+            {buttonText}
+          </button>
+        )}
       </div>
     </div>
   );

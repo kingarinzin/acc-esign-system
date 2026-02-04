@@ -14,4 +14,9 @@ export interface User {
   approvedAt?: Date;
   isActive?: boolean;
   createdAt: Date;
+  loginOtp?: {
+    code: string;
+    expiresAt: Date;
+    attempts: number;
+  };
 }

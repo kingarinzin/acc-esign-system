@@ -25,14 +25,14 @@ function LoginForm() {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("isAdmin", data.isAdmin ? "true" : "false");
-        
-        // Redirect admin to approval page, regular users to dashboard
-        if (data.isAdmin) {
-          router.push("/admin/pending-users");
+        if (data.requiresOtp) {
+          // Regular user - redirect to OTP verification
+          router.push(`/verify-login-otp?userId=${data.userId}&email=${encodeURIComponent(data.email)}`);
         } else {
-          router.push(returnTo || "/dashboard");
+          // Admin - direct login without OTP
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("isAdmin", data.isAdmin ? "true" : "false");
+          router.push("/admin/pending-users");
         }
       } else {
         setMessage(data.error || "Login failed");
