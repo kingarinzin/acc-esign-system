@@ -37,12 +37,33 @@ export default function Dashboard() {
   const sigInputRef = useRef<HTMLInputElement>(null);
   const initialsInputRef = useRef<HTMLInputElement>(null);
 
-  // Check authentication on mount
+  // Check authentication on mount and verify token validity
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       router.push("/login");
+      return;
     }
+
+    // Test if token is still valid by making an API call
+    async function checkTokenValidity() {
+      try {
+        const res = await fetch("/api/user/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (res.status === 401) {
+          // Token expired - clear storage and redirect
+          localStorage.removeItem("token");
+          localStorage.removeItem("isAdmin");
+          router.push("/login?expired=true");
+        }
+      } catch (err) {
+        console.error("Token validation error:", err);
+      }
+    }
+    
+    checkTokenValidity();
   }, [router]);
 
 

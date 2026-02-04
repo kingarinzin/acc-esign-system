@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle, XCircle, Clock, Trash2, Power, PowerOff } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import SuccessModal from "@/components/SuccessModal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface User {
   _id: string;
@@ -20,6 +22,18 @@ export default function AllUsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({ isOpen: false, title: "", message: "" });
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDangerous: boolean;
+  }>({ isOpen: false, title: "", message: "", onConfirm: () => {}, isDangerous: false });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -31,11 +45,33 @@ export default function AllUsersPage() {
     }
 
     if (!isAdmin) {
-      alert("Unauthorized: Admin access required");
-      router.push("/dashboard");
+      setModalState({
+        isOpen: true,
+        title: "Unauthorized",
+        message: "Admin access required"
+      });
+      setTimeout(() => router.push("/dashboard"), 2000);
       return;
     }
 
+    async function checkTokenValidity() {
+      try {
+        const res = await fetch("/api/user/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("isAdmin");
+          router.push("/login?expired=true");
+          return;
+        }
+      } catch (err) {
+        console.error("Token validation error:", err);
+      }
+    }
+    
+    checkTokenValidity();
     fetchAllUsers();
   }, [router]);
 
@@ -46,9 +82,20 @@ export default function AllUsersPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("isAdmin");
+        router.push("/login?expired=true");
+        return;
+      }
+
       if (res.status === 403) {
-        alert("Unauthorized: Admin access required");
-        router.push("/dashboard");
+        setModalState({
+          isOpen: true,
+          title: "Unauthorized",
+          message: "Admin access required"
+        });
+        setTimeout(() => router.push("/dashboard"), 2000);
         return;
       }
 
@@ -92,12 +139,20 @@ export default function AllUsersPage() {
     return <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded text-xs font-medium inline-flex items-center gap-1"><PowerOff size={12} />Inactive</span>;
   }
 
-  async function handleToggleStatus(userId: string, currentStatus: boolean) {
+  function handleToggleStatus(userId: string, currentStatus: boolean) {
     const newStatus = !currentStatus;
     
-    if (!confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this user?`)) {
-      return;
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: `${newStatus ? 'Activate' : 'Deactivate'} User`,
+      message: `Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this user?`,
+      isDangerous: !newStatus,
+      onConfirm: () => executeToggleStatus(userId, newStatus),
+    });
+  }
+
+  async function executeToggleStatus(userId: string, newStatus: boolean) {
+    setConfirmModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isDangerous: false });
 
     try {
       const token = localStorage.getItem("token");
@@ -110,25 +165,52 @@ export default function AllUsersPage() {
         body: JSON.stringify({ userId, isActive: newStatus }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Failed to update user status");
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("isAdmin");
+        router.push("/login?expired=true");
         return;
       }
 
-      alert(`User ${newStatus ? 'activated' : 'deactivated'} successfully`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setModalState({
+          isOpen: true,
+          title: "Error",
+          message: data.error || "Failed to update user status"
+        });
+        return;
+      }
+
+      setModalState({
+        isOpen: true,
+        title: "Success",
+        message: `User ${newStatus ? 'activated' : 'deactivated'} successfully`
+      });
       fetchAllUsers();
     } catch (err) {
       console.error("Failed to toggle user status:", err);
-      alert("Failed to update user status");
+      setModalState({
+        isOpen: true,
+        title: "Error",
+        message: "Failed to update user status"
+      });
     }
   }
 
-  async function handleDeleteUser(userId: string, email: string) {
-    if (!confirm(`Are you sure you want to permanently delete user "${email}"? This action cannot be undone.`)) {
-      return;
-    }
+  function handleDeleteUser(userId: string, email: string) {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete User",
+      message: `Are you sure you want to permanently delete user "${email}"?\n\nThis action cannot be undone.`,
+      isDangerous: true,
+      onConfirm: () => executeDeleteUser(userId),
+    });
+  }
+
+  async function executeDeleteUser(userId: string) {
+    setConfirmModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isDangerous: false });
 
     try {
       const token = localStorage.getItem("token");
@@ -139,18 +221,37 @@ export default function AllUsersPage() {
         },
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Failed to delete user");
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("isAdmin");
+        router.push("/login?expired=true");
         return;
       }
 
-      alert("User deleted successfully");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setModalState({
+          isOpen: true,
+          title: "Error",
+          message: data.error || "Failed to delete user"
+        });
+        return;
+      }
+
+      setModalState({
+        isOpen: true,
+        title: "Success",
+        message: "User deleted successfully"
+      });
       fetchAllUsers();
     } catch (err) {
       console.error("Failed to delete user:", err);
-      alert("Failed to delete user");
+      setModalState({
+        isOpen: true,
+        title: "Error",
+        message: "Failed to delete user"
+      });
     }
   }
 
@@ -232,6 +333,24 @@ export default function AllUsersPage() {
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isDangerous: false })}
+        isDangerous={confirmModal.isDangerous}
+      />
+
+      {/* Success/Error Modal */}
+      <SuccessModal
+        isOpen={modalState.isOpen}
+        title={modalState.title}
+        message={modalState.message}
+        onClose={() => setModalState({ isOpen: false, title: "", message: "" })}
+      />
     </div>
   );
 }

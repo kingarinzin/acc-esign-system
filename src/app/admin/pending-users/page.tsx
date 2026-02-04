@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import SuccessModal from "@/components/SuccessModal";
 
 interface PendingUser {
   _id: string;
@@ -18,6 +19,11 @@ export default function PendingUsersPage() {
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({ isOpen: false, title: "", message: "" });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -29,11 +35,33 @@ export default function PendingUsersPage() {
     }
 
     if (!isAdmin) {
-      alert("Unauthorized: Admin access required");
-      router.push("/dashboard");
+      setModalState({
+        isOpen: true,
+        title: "Unauthorized",
+        message: "Admin access required"
+      });
+      setTimeout(() => router.push("/dashboard"), 2000);
       return;
     }
 
+    async function checkTokenValidity() {
+      try {
+        const res = await fetch("/api/user/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("isAdmin");
+          router.push("/login?expired=true");
+          return;
+        }
+      } catch (err) {
+        console.error("Token validation error:", err);
+      }
+    }
+    
+    checkTokenValidity();
     fetchPendingUsers();
   }, [router]);
 
@@ -44,9 +72,20 @@ export default function PendingUsersPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("isAdmin");
+        router.push("/login?expired=true");
+        return;
+      }
+
       if (res.status === 403) {
-        alert("Unauthorized: Admin access required");
-        router.push("/dashboard");
+        setModalState({
+          isOpen: true,
+          title: "Unauthorized",
+          message: "Admin access required"
+        });
+        setTimeout(() => router.push("/dashboard"), 2000);
         return;
       }
 
@@ -72,15 +111,34 @@ export default function PendingUsersPage() {
         body: JSON.stringify({ userId, action }),
       });
 
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("isAdmin");
+        router.push("/login?expired=true");
+        return;
+      }
+
       if (res.ok) {
-        alert(`User ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
+        setModalState({
+          isOpen: true,
+          title: "Success",
+          message: `User ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+        });
         fetchPendingUsers();
       } else {
         const data = await res.json();
-        alert(data.error || "Action failed");
+        setModalState({
+          isOpen: true,
+          title: "Error",
+          message: data.error || "Action failed"
+        });
       }
     } catch (err) {
-      alert("Failed to process request");
+      setModalState({
+        isOpen: true,
+        title: "Error",
+        message: "Failed to process request"
+      });
     } finally {
       setActionLoading(null);
     }
@@ -157,6 +215,14 @@ export default function PendingUsersPage() {
         )}
       </div>
     </div>
+
+    {/* Success/Error Modal */}
+    <SuccessModal
+      isOpen={modalState.isOpen}
+      title={modalState.title}
+      message={modalState.message}
+      onClose={() => setModalState({ isOpen: false, title: "", message: "" })}
+    />
     </div>
   );
 }

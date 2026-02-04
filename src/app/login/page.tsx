@@ -10,6 +10,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const returnTo = searchParams.get("returnTo");
+  const expired = searchParams.get("expired");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +56,13 @@ function LoginForm() {
           <h1 className="text-3xl font-bold text-gray-800">Welcome Back</h1>
           <p className="text-gray-500 mt-1">Sign in to your account</p>
         </div>
+
+        {/* Session Expired Message */}
+        {expired === "true" && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4 text-sm">
+            <strong>Session Expired:</strong> Your session has expired. Please log in again.
+          </div>
+        )}
 
         {/* Form */}
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>

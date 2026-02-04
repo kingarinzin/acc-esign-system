@@ -27,6 +27,33 @@ export default function DocumentList() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
+  // Check authentication and token validity
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    async function checkTokenValidity() {
+      try {
+        const res = await fetch("/api/user/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("isAdmin");
+          router.push("/login?expired=true");
+        }
+      } catch (err) {
+        console.error("Token validation error:", err);
+      }
+    }
+    
+    checkTokenValidity();
+  }, [router]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = () => setOpenDropdown(null);
