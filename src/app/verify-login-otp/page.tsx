@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail, RefreshCw, Clock } from "lucide-react";
 import SuccessModal from "@/components/SuccessModal";
 
-export default function VerifyLoginOTPPage() {
+function VerifyLoginOTPContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = searchParams.get("userId");
@@ -237,5 +237,22 @@ export default function VerifyLoginOTPPage() {
         showButton={modalState.title !== "Login Successful"}
       />
     </div>
+  );
+}
+
+export default function VerifyLoginOTPPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#00083d]">
+          <div className="text-white flex items-center gap-2">
+            <Loader2 className="animate-spin" size={24} />
+            <span>Loading...</span>
+          </div>
+        </div>
+      }
+    >
+      <VerifyLoginOTPContent />
+    </Suspense>
   );
 }
