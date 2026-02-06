@@ -93,8 +93,15 @@ function LoginForm() {
         {/* Error message */}
         {message && <p className="text-center mt-4 text-red-500">{message}</p>}
 
+        {/* Forgot Password link */}
+        <p className="text-center mt-4 text-sm">
+          <a href="/forgot-password" className="text-[#00083d] hover:underline">
+            Forgot Password?
+          </a>
+        </p>
+
         {/* Signup link */}
-        <p className="text-center mt-6 text-sm text-gray-500">
+        <p className="text-center mt-4 text-sm text-gray-500">
           Don’t have an account?{" "}
           <a href="/signup" className="text-[#00083d] hover:underline">
             Sign Up
