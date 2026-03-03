@@ -2,19 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle, XCircle, Clock, Trash2, Power, PowerOff } from "lucide-react";
+import { Loader2, Power, PowerOff, Trash2 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import SuccessModal from "@/components/SuccessModal";
-import ConfirmModal from "@/components/ConfirmModal";
 
 interface User {
   _id: string;
+  firstName: string;
+  cid: string;
+  designation: string;
+  phone: string;
   email: string;
-  name?: string;
-  isAdmin: boolean;
-  isApproved: boolean;
-  approvalStatus: string;
-  isActive?: boolean;
+  departmentName: string;
+  divisionName: string;
+  role: string;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -22,335 +23,261 @@ export default function AllUsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalState, setModalState] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-  }>({ isOpen: false, title: "", message: "" });
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    isDangerous: boolean;
-  }>({ isOpen: false, title: "", message: "", onConfirm: () => {}, isDangerous: false });
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // JWT Verification & Fetch Users
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const isAdmin = localStorage.getItem("isAdmin") === "true";
-    
     if (!token) {
       router.push("/login");
       return;
     }
 
-    if (!isAdmin) {
-      setModalState({
-        isOpen: true,
-        title: "Unauthorized",
-        message: "Admin access required"
-      });
-      setTimeout(() => router.push("/dashboard"), 2000);
-      return;
-    }
-
-    async function checkTokenValidity() {
+    async function fetchUsers() {
       try {
-        const res = await fetch("/api/user/profile", {
+        const res = await fetch("/api/admin/all-users", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        
+
         if (res.status === 401) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("isAdmin");
+          // Invalid or expired token
+          localStorage.clear();
           router.push("/login?expired=true");
           return;
         }
+
+        const data = await res.json();
+        setUsers(data.users || []);
       } catch (err) {
-        console.error("Token validation error:", err);
+        console.error("Failed to fetch users:", err);
+      } finally {
+        setLoading(false);
       }
     }
-    
-    checkTokenValidity();
-    fetchAllUsers();
+
+    fetchUsers();
   }, [router]);
 
-  async function fetchAllUsers() {
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleAction = async (userId: string, action: "toggleStatus" | "delete", currentStatus?: boolean) => {
+    setActionLoading(userId);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("/api/admin/all-users", {
-        headers: { Authorization: `Bearer ${token}` },
+      let url = "";
+      let method: "POST" | "DELETE" = "POST";
+      let body: any = {};
+
+      if (action === "toggleStatus") {
+        url = "/api/admin/toggle-user-status";
+        body = { userId, isActive: !currentStatus };
+      } else if (action === "delete") {
+        url = `/api/admin/delete-user?userId=${userId}`;
+        method = "DELETE";
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: method === "POST" ? JSON.stringify(body) : undefined,
       });
 
-      if (res.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("isAdmin");
-        router.push("/login?expired=true");
-        return;
+      if (res.ok) {
+        showNotification(action === "delete" ? "User deleted" : `User ${!currentStatus ? "activated" : "deactivated"}`, "success");
+        // Refresh users
+        const refreshed = await fetch("/api/admin/all-users", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await refreshed.json();
+        setUsers(data.users || []);
+      } else {
+        const data = await res.json();
+        showNotification(data.error || "Action failed", "error");
       }
-
-      if (res.status === 403) {
-        setModalState({
-          isOpen: true,
-          title: "Unauthorized",
-          message: "Admin access required"
-        });
-        setTimeout(() => router.push("/dashboard"), 2000);
-        return;
-      }
-
-      const data = await res.json();
-      setUsers(data.users || []);
-    } catch (err) {
-      console.error("Failed to fetch users:", err);
+    } catch {
+      showNotification("Action failed", "error");
     } finally {
-      setLoading(false);
+      setActionLoading(null);
     }
-  }
+  };
 
-  function getStatusBadge(user: User) {
-    if (user.isAdmin) {
-      return <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">Admin</span>;
-    }
-    
-    if (user.approvalStatus === 'approved') {
-      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium inline-flex items-center gap-1"><CheckCircle size={12} />Approved</span>;
-    }
-    
-    if (user.approvalStatus === 'pending') {
-      return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium inline-flex items-center gap-1"><Clock size={12} />Pending</span>;
-    }
-    
-    if (user.approvalStatus === 'rejected') {
-      return <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium inline-flex items-center gap-1"><XCircle size={12} />Rejected</span>;
-    }
-    
-    return <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">Unknown</span>;
-  }
-
-  function getActivityBadge(user: User) {
-    // Default to active if isActive is undefined (for backward compatibility)
-    const isActive = user.isActive !== false;
-    
-    if (isActive) {
-      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium inline-flex items-center gap-1"><Power size={12} />Active</span>;
-    }
-    
-    return <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded text-xs font-medium inline-flex items-center gap-1"><PowerOff size={12} />Inactive</span>;
-  }
-
-  function handleToggleStatus(userId: string, currentStatus: boolean) {
-    const newStatus = !currentStatus;
-    
-    setConfirmModal({
-      isOpen: true,
-      title: `${newStatus ? 'Activate' : 'Deactivate'} User`,
-      message: `Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this user?`,
-      isDangerous: !newStatus,
-      onConfirm: () => executeToggleStatus(userId, newStatus),
-    });
-  }
-
-  async function executeToggleStatus(userId: string, newStatus: boolean) {
-    setConfirmModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isDangerous: false });
-
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setActionLoading(userId);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("/api/admin/toggle-user-status", {
+      const res = await fetch("/api/admin/update-user-role", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ userId, isActive: newStatus }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId, role: newRole }),
       });
 
-      if (res.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("isAdmin");
-        router.push("/login?expired=true");
-        return;
+      if (res.ok) {
+        showNotification("Role updated", "success");
+        const refreshed = await fetch("/api/admin/all-users", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await refreshed.json();
+        setUsers(data.users || []);
+      } else {
+        const data = await res.json();
+        showNotification(data.error || "Failed to update role", "error");
       }
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setModalState({
-          isOpen: true,
-          title: "Error",
-          message: data.error || "Failed to update user status"
-        });
-        return;
-      }
-
-      setModalState({
-        isOpen: true,
-        title: "Success",
-        message: `User ${newStatus ? 'activated' : 'deactivated'} successfully`
-      });
-      fetchAllUsers();
-    } catch (err) {
-      console.error("Failed to toggle user status:", err);
-      setModalState({
-        isOpen: true,
-        title: "Error",
-        message: "Failed to update user status"
-      });
+    } catch {
+      showNotification("Failed to update role", "error");
+    } finally {
+      setActionLoading(null);
     }
-  }
+  };
 
-  function handleDeleteUser(userId: string, email: string) {
-    setConfirmModal({
-      isOpen: true,
-      title: "Delete User",
-      message: `Are you sure you want to permanently delete user "${email}"?\n\nThis action cannot be undone.`,
-      isDangerous: true,
-      onConfirm: () => executeDeleteUser(userId),
-    });
-  }
+  // Filter & Pagination
+  const filteredUsers = users.filter(
+    (u) =>
+      u.firstName.toLowerCase().includes(search.toLowerCase()) ||
+      u.cid.includes(search) ||
+      u.departmentName.toLowerCase().includes(search.toLowerCase()) ||
+      u.divisionName.toLowerCase().includes(search.toLowerCase()) ||
+      (u.role || "").toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase())
+  );
 
-  async function executeDeleteUser(userId: string) {
-    setConfirmModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isDangerous: false });
+  const totalPages = Math.ceil(filteredUsers.length / rowsPerPage);
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/admin/delete-user?userId=${userId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (res.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("isAdmin");
-        router.push("/login?expired=true");
-        return;
-      }
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setModalState({
-          isOpen: true,
-          title: "Error",
-          message: data.error || "Failed to delete user"
-        });
-        return;
-      }
-
-      setModalState({
-        isOpen: true,
-        title: "Success",
-        message: "User deleted successfully"
-      });
-      fetchAllUsers();
-    } catch (err) {
-      console.error("Failed to delete user:", err);
-      setModalState({
-        isOpen: true,
-        title: "Error",
-        message: "Failed to delete user"
-      });
-    }
-  }
-
-  if (loading) {
+  if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="animate-spin text-blue-600" size={40} />
       </div>
     );
-  }
 
   return (
-    <div className="flex">
-      <Sidebar />
-      <div className="flex-1 ml-64 min-h-screen bg-gray-50 p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">All Users</h1>
-            <p className="text-gray-600 mt-2">View all registered users and their status</p>
-          </div>
-
-          {users.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-              No users found
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Approval Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Activity Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registered</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {users.map((user) => {
-                    const isActive = user.isActive !== false;
-                    return (
-                      <tr key={user._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-900">{user.email}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{user.name || '-'}</td>
-                        <td className="px-6 py-4 text-sm">{getStatusBadge(user)}</td>
-                        <td className="px-6 py-4 text-sm">{getActivityBadge(user)}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {new Date(user.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleToggleStatus(user._id, isActive)}
-                              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                isActive 
-                                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' 
-                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-                              }`}
-                              title={isActive ? 'Deactivate user' : 'Activate user'}
-                            >
-                              {isActive ? <PowerOff size={14} /> : <Power size={14} />}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(user._id, user.email)}
-                              className="px-3 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors"
-                              title="Delete user"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+    <div className="flex min-h-screen bg-gray-50 relative">
+      {/* Notification */}
+      {notification && (
+        <div
+          className={`fixed top-4 right-4 px-4 py-2 rounded shadow-lg text-white z-50 transition-transform duration-300 ${
+            notification.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
+        >
+          {notification.message}
         </div>
-      </div>
+      )}
 
-      {/* Confirmation Modal */}
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isDangerous: false })}
-        isDangerous={confirmModal.isDangerous}
-      />
+      <Sidebar />
 
-      {/* Success/Error Modal */}
-      <SuccessModal
-        isOpen={modalState.isOpen}
-        title={modalState.title}
-        message={modalState.message}
-        onClose={() => setModalState({ isOpen: false, title: "", message: "" })}
-      />
+      <main className="flex-1 p-6 ml-64">
+        <h1 className="text-3xl font-bold mb-2">All Users</h1>
+        <p className="text-gray-600 mb-4">View and manage all registered users</p>
+
+        {/* Search & Rows */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-3 mb-4">
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full md:w-64 px-3 py-2 border rounded focus:ring-2 focus:ring-blue-400 outline-none"
+          />
+          <div className="flex items-center gap-2 text-sm">
+            <span>Show</span>
+            <select value={rowsPerPage} onChange={(e) => setRowsPerPage(Number(e.target.value))} className="border rounded px-2 py-1">
+              {[10, 20, 30, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <span>entries</span>
+          </div>
+        </div>
+
+        {/* Users Table */}
+        <div className="overflow-x-auto w-full bg-white shadow rounded-lg">
+          {/* Desktop Table */}
+          <table className="w-full table-auto min-w-full divide-y divide-gray-200 hidden md:table">
+            <thead className="bg-gray-50">
+              <tr>
+                {["Name", "CID", "Designation", "Phone", "Email", "Department", "Division", "Role", "Registered", "Actions"].map((col) => (
+                  <th key={col} className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {paginatedUsers.length > 0 ? (
+                paginatedUsers.map((user) => (
+                  <tr key={user._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2">{user.firstName}</td>
+                    <td className="px-4 py-2">{user.cid}</td>
+                    <td className="px-4 py-2">{user.designation}</td>
+                    <td className="px-4 py-2">{user.phone}</td>
+                    <td className="px-4 py-2">{user.email}</td>
+                    <td className="px-4 py-2">{user.departmentName}</td>
+                    <td className="px-4 py-2">{user.divisionName}</td>
+                    <td className="px-4 py-2">
+                      <select
+                        value={user.role || "Officer"}
+                        onChange={(e) => handleRoleChange(user._id, e.target.value)}
+                        className="border rounded px-2 py-1 text-xs w-full"
+                      >
+                        <option value="Officer">Officer</option>
+                        <option value="DivisionHead">Division Head</option>
+                        <option value="DepartmentHead">Department Head</option>
+                        <option value="Commissioner">Commissioner</option>
+                        <option value="Chairperson">Chairperson</option>
+                      </select>
+                    </td>
+                    <td className="px-4 py-2">{new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-2 flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => handleAction(user._id, "toggleStatus", user.isActive)}
+                        disabled={actionLoading === user._id}
+                        className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-medium transition ${
+                          user.isActive
+                            ? "bg-green-100 text-green-700 hover:bg-green-200"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        {actionLoading === user._id ? <Loader2 className="animate-spin" size={14} /> : user.isActive ? <PowerOff size={14} /> : <Power size={14} />}
+                        {user.isActive ? "Deactivate" : "Activate"}
+                      </button>
+                      <button
+                        onClick={() => handleAction(user._id, "delete")}
+                        disabled={actionLoading === user._id}
+                        className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition"
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={10} className="text-center py-6 text-gray-500">
+                    No records found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-end items-center gap-4 mt-4 text-sm">
+            <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)} className={`font-semibold text-lg ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "hover:text-blue-600"}`}>&lt;</button>
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)} className={`font-semibold text-lg ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "hover:text-blue-600"}`}>&gt;</button>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

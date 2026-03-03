@@ -17,11 +17,30 @@ function createTransporter() {
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const {
+      firstName,
+      cid,          // <-- fixed here
+      designation,
+      phone,
+      email,
+      departmentId,
+      divisionId,
+      password,
+    } = await req.json();
 
-    if (!email || !password) {
+    // ===== Validation =====
+    if (
+      !firstName ||
+      !cid ||
+      !designation ||
+      !phone ||
+      !email ||
+      !departmentId ||
+      !divisionId ||
+      !password
+    ) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "All fields are required" },
         { status: 400 }
       );
     }
@@ -31,29 +50,32 @@ export async function POST(req: Request) {
     const users = db.collection("users");
 
     const existingUser = await users.findOne({ email });
-
     if (existingUser) {
       return NextResponse.json(
-        { error: "User already exists" },
+        { error: "Email already registered" },
         { status: 400 }
       );
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const userName = email.split('@')[0];
-
-    await users.insertOne({
+    const newUser = {
+      firstName,
+      cid,           // <-- save lowercase
+      designation,
+      phone,
       email,
+      departmentId,
+      divisionId,
       password: hashedPassword,
-      name: userName,
       isAdmin: false,
-      isApproved: false,
-      approvalStatus: 'pending',
+      approvalStatus: "pending",
       createdAt: new Date(),
-    });
+    };
 
-    // Send notification to user
+    await users.insertOne(newUser);
+
+    // ===== Email notification =====
     try {
       const transporter = createTransporter();
       await transporter.sendMail({
@@ -63,11 +85,11 @@ export async function POST(req: Request) {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Registration Received</h2>
-            <p>Hi ${userName},</p>
-            <p>Thank you for registering with E-Sign. Your account has been created and is currently <strong>pending approval</strong>.</p>
-            <p>You will receive an email notification once an administrator reviews and approves your account.</p>
+            <p>Hi ${firstName},</p>
+            <p>Your account has been created and is currently <strong>pending approval</strong>.</p>
+            <p>You will receive an email once an administrator approves your account.</p>
             <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-              This is an automated message. Please do not reply to this email.
+              This is an automated message. Please do not reply.
             </p>
           </div>
         `,
@@ -76,11 +98,12 @@ export async function POST(req: Request) {
       console.error("Failed to send user notification email:", emailError);
     }
 
-    return NextResponse.json({ 
-      message: "Registration submitted. Please wait for admin approval. You will receive an email notification once approved.",
-      status: "pending"
+    return NextResponse.json({
+      message: "Registration submitted. Await admin approval.",
+      status: "pending",
     });
   } catch (error) {
+    console.error("Signup error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
