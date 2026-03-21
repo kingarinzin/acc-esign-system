@@ -20,10 +20,17 @@ interface User {
 
 export default function AllUsersPage() {
   const router = useRouter();
+
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,9 +39,18 @@ export default function AllUsersPage() {
   // ================= Load Users =================
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     if (!token) {
       router.push("/login");
       return;
+    }
+
+    // Decode token to get current user role
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      setCurrentUser(payload);
+    } catch (err) {
+      console.error("Invalid token");
     }
 
     async function fetchUsers() {
@@ -68,8 +84,13 @@ export default function AllUsersPage() {
   };
 
   // ================= User Actions =================
-  const handleAction = async (userId: string, action: "toggleStatus" | "delete", currentStatus?: boolean) => {
+  const handleAction = async (
+    userId: string,
+    action: "toggleStatus" | "delete",
+    currentStatus?: boolean
+  ) => {
     setActionLoading(userId);
+
     try {
       const token = localStorage.getItem("token");
       let url = "";
@@ -86,13 +107,25 @@ export default function AllUsersPage() {
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: method === "POST" ? JSON.stringify(body) : undefined,
       });
 
       if (res.ok) {
-        showNotification(action === "delete" ? "User deleted" : `User ${!currentStatus ? "activated" : "deactivated"}`, "success");
-        const refreshed = await fetch("/api/admin/all-users", { headers: { Authorization: `Bearer ${token}` } });
+        showNotification(
+          action === "delete"
+            ? "User deleted"
+            : `User ${!currentStatus ? "activated" : "deactivated"}`,
+          "success"
+        );
+
+        const refreshed = await fetch("/api/admin/all-users", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
         const data = await refreshed.json();
         setUsers(data.users || []);
       } else {
@@ -108,18 +141,28 @@ export default function AllUsersPage() {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     if (!newRole) return;
+
     setActionLoading(userId);
+
     try {
       const token = localStorage.getItem("token");
+
       const res = await fetch("/api/admin/update-user-role", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ userId, role: newRole }),
       });
 
       if (res.ok) {
         showNotification("Role updated", "success");
-        const refreshed = await fetch("/api/admin/all-users", { headers: { Authorization: `Bearer ${token}` } });
+
+        const refreshed = await fetch("/api/admin/all-users", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
         const data = await refreshed.json();
         setUsers(data.users || []);
       } else {
@@ -144,7 +187,10 @@ export default function AllUsersPage() {
       u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const paginatedUsers = filteredUsers.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
 
   if (loading)
     return (
@@ -155,6 +201,7 @@ export default function AllUsersPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-50 relative">
+      {/* Notification */}
       {notification && (
         <div
           className={`fixed top-4 right-4 px-4 py-2 rounded shadow-lg text-white z-50 ${
@@ -170,6 +217,7 @@ export default function AllUsersPage() {
       <main className="flex-1 p-6 ml-64">
         <h1 className="text-3xl font-bold mb-4">All Users</h1>
 
+        {/* Search */}
         <input
           type="text"
           placeholder="Search users..."
@@ -182,13 +230,24 @@ export default function AllUsersPage() {
           <table className="w-full table-auto divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {["Name", "CID", "Phone", "Email", "Department", "Division", "Role", "Registered", "Actions"].map(
-                  (col) => (
-                    <th key={col} className="px-4 py-2 text-left text-xs font-medium uppercase">
-                      {col}
-                    </th>
-                  )
-                )}
+                {[
+                  "Name",
+                  "CID",
+                  "Phone",
+                  "Email",
+                  "Department",
+                  "Division",
+                  "Role",
+                  "Registered",
+                  "Actions",
+                ].map((col) => (
+                  <th
+                    key={col}
+                    className="px-4 py-2 text-left text-xs font-medium uppercase"
+                  >
+                    {col}
+                  </th>
+                ))}
               </tr>
             </thead>
 
@@ -202,33 +261,65 @@ export default function AllUsersPage() {
                     <td className="px-4 py-2">{user.email}</td>
                     <td className="px-4 py-2">{user.departmentName}</td>
                     <td className="px-4 py-2">{user.divisionName}</td>
-                    <td className="px-4 py-2">
-                      <select
-                        value={user.role || "Normal User"}
-                        onChange={(e) => handleRoleChange(user._id, e.target.value)}
-                        className="border rounded px-2 py-1 text-xs w-full"
-                      >
 
-                        <option value="ACC_USER">ACC User</option>
-                        <option value="OAG_USER">OAG User</option>
-                        <option value="RAA_USER">RAA User</option>
-                        <option value="ADMIN">Admin</option>
-                      </select>
+                    {/* Role */}
+                    <td className="px-4 py-2">
+                      {currentUser?.role === "superadmin" ? (
+                        <select
+                          value={user.role || "Normal User"}
+                          onChange={(e) =>
+                            handleRoleChange(user._id, e.target.value)
+                          }
+                          className="border rounded px-2 py-1 text-xs w-full"
+                        >
+                          <option value="Normal User">Normal User</option>
+                          <option value="Admin">Admin</option>
+                        </select>
+                      ) : (
+                        <span>{user.role || "Normal User"}</span>
+                      )}
                     </td>
-                    <td className="px-4 py-2">{new Date(user.createdAt).toLocaleDateString()}</td>
+
+                    <td className="px-4 py-2">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+
+                    {/* Actions */}
                     <td className="px-4 py-2 flex gap-2">
-                      <button onClick={() => handleAction(user._id, "toggleStatus", user.isActive)}>
-                        {user.isActive ? <PowerOff size={14} /> : <Power size={14} />}
-                      </button>
-                      <button onClick={() => handleAction(user._id, "delete")}>
-                        <Trash2 size={14} />
-                      </button>
+                      {currentUser?.role === "superadmin" && (
+                        <>
+                          <button
+                            onClick={() =>
+                              handleAction(
+                                user._id,
+                                "toggleStatus",
+                                user.isActive
+                              )
+                            }
+                          >
+                            {user.isActive ? (
+                              <PowerOff size={14} />
+                            ) : (
+                              <Power size={14} />
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => handleAction(user._id, "delete")}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-4 py-4 text-center text-gray-500">
+                  <td
+                    colSpan={9}
+                    className="px-4 py-4 text-center text-gray-500"
+                  >
                     No users found
                   </td>
                 </tr>
@@ -246,13 +337,26 @@ export default function AllUsersPage() {
           >
             Previous
           </button>
+
           <span>
-            Page {currentPage} of {Math.ceil(filteredUsers.length / rowsPerPage) || 1}
+            Page {currentPage} of{" "}
+            {Math.ceil(filteredUsers.length / rowsPerPage) || 1}
           </span>
+
           <button
-            onClick={() => setCurrentPage(Math.min(Math.ceil(filteredUsers.length / rowsPerPage), currentPage + 1))}
+            onClick={() =>
+              setCurrentPage(
+                Math.min(
+                  Math.ceil(filteredUsers.length / rowsPerPage),
+                  currentPage + 1
+                )
+              )
+            }
             className="px-3 py-1 border rounded disabled:opacity-50"
-            disabled={currentPage === Math.ceil(filteredUsers.length / rowsPerPage)}
+            disabled={
+              currentPage ===
+              Math.ceil(filteredUsers.length / rowsPerPage)
+            }
           >
             Next
           </button>

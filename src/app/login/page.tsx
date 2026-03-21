@@ -38,6 +38,9 @@ function LoginForm() {
          // Admin - direct login without OTP
          localStorage.setItem("token", data.token);
          localStorage.setItem("isAdmin", data.isAdmin ? "true" : "false");
+
+    //  ADD THIS LINE
+        localStorage.setItem("role", data.user.role);
          router.push("/admin/pending-users");
        }
      } else {

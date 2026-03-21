@@ -3,6 +3,7 @@ import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcryptjs";
 const nodemailer = require("nodemailer");
 
+// ================= EMAIL TRANSPORTER =================
 function createTransporter() {
   return nodemailer.createTransport({
     host: "smtp.gmail.com",
@@ -15,12 +16,12 @@ function createTransporter() {
   });
 }
 
+// ================= SIGNUP POST ROUTE =================
 export async function POST(req: Request) {
   try {
     const {
       firstName,
-      cid,          // <-- fixed here
-      designation,
+      cid,
       phone,
       email,
       departmentId,
@@ -32,7 +33,6 @@ export async function POST(req: Request) {
     if (
       !firstName ||
       !cid ||
-      !designation ||
       !phone ||
       !email ||
       !departmentId ||
@@ -49,6 +49,7 @@ export async function POST(req: Request) {
     const db = client.db("e_sign_db");
     const users = db.collection("users");
 
+    // ===== Check if user already exists =====
     const existingUser = await users.findOne({ email });
     if (existingUser) {
       return NextResponse.json(
@@ -59,10 +60,10 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // ===== New User Object =====
     const newUser = {
       firstName,
-      cid,           // <-- save lowercase
-      designation,
+      cid,
       phone,
       email,
       departmentId,
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
 
     await users.insertOne(newUser);
 
-    // ===== Email notification =====
+    // ===== Email Notification =====
     try {
       const transporter = createTransporter();
       await transporter.sendMail({

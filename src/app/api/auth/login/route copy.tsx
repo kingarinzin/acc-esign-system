@@ -2,8 +2,24 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+// import nodemailer from "nodemailer";
+// import { generateOTP, getOTPExpiry } from "@/lib/otp-helpers";
 
 export const runtime = "nodejs";
+
+/*
+function createTransporter() {
+  return nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
+}
+*/
 
 export async function POST(req: Request) {
   try {
@@ -86,7 +102,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ================= ADMIN LOGIN =================
+    // ✅ Admin login (unchanged)
     if (user.isAdmin) {
       const token = jwt.sign(
         { id: user._id.toString(), email: user.email, isAdmin: true },
@@ -99,19 +115,48 @@ export async function POST(req: Request) {
         token,
         isAdmin: true,
         requiresOtp: false,
-        user: {
-          role: "ADMIN",
-        },
       });
     }
 
-    // ================= REGULAR USER LOGIN =================
-    const token = jwt.sign(
+    /*
+    // ❌ OTP FLOW DISABLED
+
+    const otpCode = generateOTP();
+    const otpExpiry = getOTPExpiry();
+
+    await users.updateOne(
+      { _id: user._id },
       {
-        id: user._id.toString(),
-        email: user.email,
-        isAdmin: user.isAdmin,
-      },
+        $set: {
+          loginOtp: {
+            code: otpCode,
+            expiresAt: otpExpiry,
+            attempts: 0,
+          },
+        },
+      }
+    );
+
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"E-Sign Platform" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Login Verification Code",
+      html: `...`,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "OTP sent to your email",
+      userId: user._id.toString(),
+      email: user.email,
+      requiresOtp: true,
+    });
+    */
+
+    // ✅ Direct login for regular users (OTP removed)
+    const token = jwt.sign(
+      { id: user._id.toString(), email: user.email, isAdmin: user.isAdmin },
       process.env.JWT_SECRET!,
       { expiresIn: "8h" }
     );
@@ -121,9 +166,6 @@ export async function POST(req: Request) {
       token,
       isAdmin: user.isAdmin || false,
       requiresOtp: false,
-      user: {
-        role: user.role, // ✅ IMPORTANT LINE
-      },
     });
 
   } catch (error) {

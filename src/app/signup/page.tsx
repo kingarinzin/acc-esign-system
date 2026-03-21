@@ -12,7 +12,6 @@ function SignupForm() {
   // ================= STATE =================
   const [firstName, setFirstName] = useState("");
   const [cid, setCid] = useState("");
-  const [designation, setDesignation] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
@@ -74,7 +73,6 @@ function SignupForm() {
     if (
       !firstName ||
       !cid ||
-      !designation ||
       !phone ||
       !email ||
       !departmentId ||
@@ -91,7 +89,6 @@ function SignupForm() {
         body: JSON.stringify({
           firstName,
           cid,
-          designation,
           phone,
           email,
           departmentId,
@@ -147,14 +144,6 @@ function SignupForm() {
             placeholder="CID Number"
             value={cid}
             onChange={(e) => setCid(e.target.value)}
-            className="input"
-          />
-
-          <input
-            type="text"
-            placeholder="Designation"
-            value={designation}
-            onChange={(e) => setDesignation(e.target.value)}
             className="input"
           />
 

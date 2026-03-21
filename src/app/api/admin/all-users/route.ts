@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { verifyAdmin } from "@/lib/admin-auth";
 
-export async function GET(req: Request) {
+export async function GET(req) {
   try {
     // 🔐 1️⃣ Verify Admin
     const adminCheck = await verifyAdmin(req);
+
     if (!adminCheck.valid) {
       return NextResponse.json(
         { error: adminCheck.error || "Unauthorized" },
@@ -17,51 +18,57 @@ export async function GET(req: Request) {
     const client = await clientPromise;
     const db = client.db("e_sign_db");
 
-    // 📦 3️⃣ Fetch Users
-    const allUsers = await db
-      .collection("users")
-      .find({})
-      .sort({ createdAt: -1 })
-      .toArray();
-
-    // 📂 4️⃣ Fetch Departments & Divisions
+    // 📦 3️⃣ Fetch Data
+    const allUsers = await db.collection("users").find({}).sort({ createdAt: -1 }).toArray();
     const departments = await db.collection("departments").find({}).toArray();
     const divisions = await db.collection("divisions").find({}).toArray();
 
-    // 🔄 5️⃣ Map Users Properly (INCLUDING ROLE)
-    const users = allUsers.map((u) => {
-      const dept = departments.find(
-        (d) => d._id.toString() === (u.departmentId || "").toString()
-      );
+    // 🔄 4️⃣ Convert to Maps (performance optimization)
+    const deptMap = new Map(
+      departments.map((d) => [d._id.toString(), d.name])
+    );
 
-      const div = divisions.find(
-        (d) => d._id.toString() === (u.divisionId || "").toString()
-      );
+    const divMap = new Map(
+      divisions.map((d) => [d._id.toString(), d.name])
+    );
 
-      return {
-        _id: u._id.toString(),
-        firstName: u.firstName || u.name || "-",
-        cid: u.cid || "-",
-        designation: u.designation || "-",
-        phone: u.phone || "-",
-        email: u.email || "-",
-        departmentName: dept ? dept.name : "-",
-        divisionName: div ? div.name : "-",
+    // ✅ Valid roles
+    const validRoles = ["ACC_USER", "OAG_USER", "RAA_USER", "ADMIN"];
 
-        // ✅ THIS WAS MISSING
-        role: u.role || "Officer",
+    // 🔄 5️⃣ Transform Users
+    const users = allUsers.map((u) => ({
+      _id: u._id.toString(),
+      firstName: u.firstName || u.name || "-",
+      cid: u.cid || "-",
+      phone: u.phone || "-",
+      email: u.email || "-",
 
-        isAdmin: !!u.isAdmin,
-        isActive: u.isActive !== undefined ? u.isActive : true,
-        createdAt: u.createdAt
-          ? new Date(u.createdAt).toISOString()
-          : new Date().toISOString(),
-      };
-    });
+      departmentName:
+        deptMap.get(u.departmentId?.toString()) || "-",
 
+      divisionName:
+        divMap.get(u.divisionId?.toString()) || "-",
+
+      role: validRoles.includes(u.role) ? u.role : "ACC_USER",
+
+      isAdmin: !!u.isAdmin, // optional (can be phased out later)
+
+      isActive: u.isActive !== undefined ? u.isActive : true,
+
+      createdAt: u.createdAt
+        ? new Date(u.createdAt).toISOString()
+        : new Date().toISOString(),
+    }));
+
+    // 📤 6️⃣ Return Response
     return NextResponse.json({ users });
+
   } catch (error) {
     console.error("Error fetching all users:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
   }
 }

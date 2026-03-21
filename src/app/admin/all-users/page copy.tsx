@@ -85,7 +85,7 @@ export default function AllUsersPage() {
       }
 
       const res = await fetch(url, {
-        method,
+        method, 
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: method === "POST" ? JSON.stringify(body) : undefined,
       });
@@ -208,11 +208,8 @@ export default function AllUsersPage() {
                         onChange={(e) => handleRoleChange(user._id, e.target.value)}
                         className="border rounded px-2 py-1 text-xs w-full"
                       >
-
-                        <option value="ACC_USER">ACC User</option>
-                        <option value="OAG_USER">OAG User</option>
-                        <option value="RAA_USER">RAA User</option>
-                        <option value="ADMIN">Admin</option>
+                        <option value="Normal User">Normal User</option>
+                        <option value="Admin">Admin</option>
                       </select>
                     </td>
                     <td className="px-4 py-2">{new Date(user.createdAt).toLocaleDateString()}</td>
