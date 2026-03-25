@@ -22,7 +22,6 @@ export default function AccOagReferralPage() {
   const [selectedCase, setSelectedCase] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);   //For view expand in the list.   
   const [isEditingStatus, setEditingStatusId] = useState(null); //for edit drop down
-  const [outcomeFiles, setOutcomeFiles] = useState([]);  // aray of file upload
   const [user, setUser] = useState(null);
         useEffect(() => {
         const fetchUser = async () => {
@@ -78,8 +77,6 @@ export default function AccOagReferralPage() {
     try {
       const res = await fetch("/api/acc-oag-referrals");
       const data = await res.json();
-console.log("REFRESHED DATA:", data); // ✅ PUT HERE
-
       setReferrals(Array.isArray(data) ? data : []);
     } catch (error) {
       showNotification(error.message, "error");
@@ -88,7 +85,6 @@ console.log("REFRESHED DATA:", data); // ✅ PUT HERE
 
   useEffect(() => {
     fetchReferrals();
-    setOutcomeFiles([]);
   }, []);
 
   // ================== UpdateStatus ==================
@@ -119,45 +115,40 @@ const updateStatus = async (id, newStatus) => {
   }
 
   setReferrals((prev) =>
-  prev.map((item) =>
-    item._id === id
-      ? { ...item, status: newStatus }
-      : item
+    prev.map((item) =>
+      item._id === id ? { ...item, status: newStatus } : item
     )
   );
 };
 
 
-// ================== SAVE OUTCOME AND UPLOAD MULTIPLE FILE UPLOAD.  ==================
+// ================== SAVE OUTCOME for text and multiple files.  ==================
 const handleSaveOutcome = async (caseId) => {
   try {
     console.log("Sending ID:", caseId);
 
     const token = localStorage.getItem("token");
 
+    // ✅ Create FormData
     const formData = new FormData();
-
-    // ✅ FIXED
     formData.append("_id", caseId);
-    formData.append("outcomeText", outcomeText);
+    formData.append("outcomeText", outcomeText || "");
 
-    if (outcomeFiles && outcomeFiles.length > 0) {
-      outcomeFiles.forEach((file) => {
-        formData.append("file", file);
-      });
+    // ✅ Append file only if selected
+    if (outcomeFile) {
+      formData.append("file", outcomeFile);
     }
 
     const res = await fetch("/api/acc-oag-referrals/outcome", {
       method: "PUT",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${token}`, // ✅ only auth header
+        // ❗ DO NOT set Content-Type here
       },
       body: formData,
     });
 
     const data = await res.json();
-
-    console.log("Response:", data);
 
     if (!res.ok) {
       alert(data.error || "Failed to save outcome");
@@ -166,9 +157,11 @@ const handleSaveOutcome = async (caseId) => {
 
     alert("Outcome saved successfully");
 
+    // ✅ Refresh data
     fetchReferrals();
 
-    setOutcomeFiles([]); // ✅ better than setOutcomeFile(null)
+    // Optional: reset file input
+    setOutcomeFile(null);
 
   } catch (err) {
     console.error("Save Outcome Error:", err);
@@ -176,50 +169,18 @@ const handleSaveOutcome = async (caseId) => {
   }
 };
 
-// ================== HANDLE FILE SELECTION ==================
-const handleFileChange = (e) => {
-  const files = Array.from(e.target.files);
+// ================== Delete upload file ==================
+const handleDeleteFile = async (file, caseId) => {
+  await fetch(`/api/outcome/${caseId}/file`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ path: file.path }),
+  });
 
-  // Append newly selected files
-  setOutcomeFiles((prev) => [...prev, ...files]);
-
-  // Reset input so same file can be selected again
-  e.target.value = null;
+  // Refresh UI after delete
 };
-// ================== REMOVE SELECTED FILE FUNCTION==================
-const handleRemoveSelectedFile = (index) => {
-  setOutcomeFiles((prev) => prev.filter((_, i) => i !== index));
-};
-
-// ==================DELETE UPLOAD FILE==================
-const handleDeleteFile = async (file, referralId) => {
-  if (!confirm(`Delete file "${file.filename}"?`)) return;
-
-  try {
-    const res = await fetch("/api/acc-oag-referrals/delete-file", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        referralId,
-        filePath: file.path,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || "Delete failed");
-
-    // Refresh UI after delete
-    fetchReferrals();
-
-    showNotification("File deleted successfully", "success");
-  } catch (error) {
-    showNotification(error.message, "error");
-  }
-};
-
 
   // ================== FORM HANDLERS ==================
   const handleFormChange = (e) => {
@@ -699,7 +660,6 @@ const handleDeleteFile = async (file, referralId) => {
                           onClick={() => {
                               setExpandedRow(expandedRow === r._id ? null : r._id);
                               setOutcomeText(r.outcome?.text || ""); // ✅ LOAD FROM DB HERE
-                              setSelectedCase(r); // ✅ ADD THIS
                             }}
                           className="text-gray-500 hover:text-gray-700 transition"
                           title="View"
@@ -886,81 +846,37 @@ const handleDeleteFile = async (file, referralId) => {
         </label>
         <input
           type="file"
-          multiple
-          onChange={handleFileChange}
+          onChange={(e) => setOutcomeFile(e.target.files[0])}
           className="w-full text-sm border rounded-lg px-3 py-2 bg-white"
         />
       </div>
+   {/* Display upload file. */}
+      <div className="mt-3">
+          {selectedCase?.outcome?.files?.map((file, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between bg-gray-100 px-3 py-2 rounded mb-2"
+            >
+              <a
+                href={file.path}
+                target="_blank"
+                className="text-blue-600 underline text-sm"
+              >
+                {file.filename}
+              </a>
 
-  {/* ================= PREVIEW SELECTED FILES BEFORE UPLOAD ================= */}
-    <div className="mt-3 space-y-2">
-  {outcomeFiles.map((file, index) => {
-    const isImage = file.type.startsWith("image/");
-    const isPdf = file.type === "application/pdf";
-
-    return (
-      <div
-        key={index}
-        className="flex items-center justify-between bg-gray-100 px-3 py-2 rounded"
-      >
-        <div className="flex items-center gap-2">
-          <span>
-            {isImage ? "🖼" : isPdf ? "📄" : "📎"}
-          </span>
-
-          <span className="text-sm">
-            {file.name}
-          </span>
-        </div>
-
-        <button
-          onClick={() => handleRemoveSelectedFile(index)}
-          className="text-red-500 text-sm"
-        >
-          ✕
-        </button>
-      </div>
-    );
-  })}
-</div>
+              <button
+                onClick={() => handleDeleteFile(file, selectedCase._id)}
+                className="text-red-500 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+   </div>
 
 
-   {/* ================= FILE UPLOAD DISPLAY ================= */}
-
-   <div className="mt-4 flex flex-wrap gap-2">
-  {r.outcome?.files?.map((file) => {
-    const isImage = file.filename.match(/\.(jpg|jpeg|png|gif)$/i);
-    const isPdf = file.filename.match(/\.pdf$/i);
-
-    return (
-      <div
-        key={file.path}
-        className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full"
-      >
-        <a
-          href={file.path}
-          target="_blank"
-          className="flex items-center gap-1 text-blue-600 underline text-sm"
-          title={file.filename}
-        >
-          <span>
-            {isImage ? "🖼" : isPdf ? "📄" : "📎"}
-          </span>
-          {file.filename}
-        </a>
-
-        <button
-          onClick={() => handleDeleteFile(file, r._id)}
-          className="text-red-500 text-sm ml-1"
-        >
-          ✕
-        </button>
-      </div>
-    );
-  })}
-</div>
- {/* ================= SAVE BUTTON ================= */}
-
+      {/* SAVE BUTTON */}
       <div className="flex justify-end">
         <button
           type="button"

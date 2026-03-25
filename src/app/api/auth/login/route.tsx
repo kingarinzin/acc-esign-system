@@ -110,6 +110,7 @@ export async function POST(req: Request) {
       {
         id: user._id.toString(),
         email: user.email,
+        role: user.role,        // 🔥 ADD THIS
         isAdmin: user.isAdmin,
       },
       process.env.JWT_SECRET!,

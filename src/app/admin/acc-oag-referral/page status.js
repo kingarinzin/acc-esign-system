@@ -14,15 +14,9 @@ export default function AccOagReferralPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [notification, setNotification] = useState(null);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [expandedOutcome, setExpandedOutcome] = useState(false);
-  const [expandedMinutes, setExpandedMinutes] = useState(false);
-  const [expandedComment, setExpandedComment] = useState(false);
-  const [outcomeText, setOutcomeText] = useState("");    // For case outcome
-  const [outcomeFile, setOutcomeFile] = useState(null);  // for case outcome
-  const [selectedCase, setSelectedCase] = useState(null);
-  const [expandedRow, setExpandedRow] = useState(null);   //For view expand in the list.   
+  
+  const [expandedRow, setExpandedRow] = useState(null);   //For view expand in the list.   . 
   const [isEditingStatus, setEditingStatusId] = useState(null); //for edit drop down
-  const [outcomeFiles, setOutcomeFiles] = useState([]);  // aray of file upload
   const [user, setUser] = useState(null);
         useEffect(() => {
         const fetchUser = async () => {
@@ -53,9 +47,6 @@ export default function AccOagReferralPage() {
         fetchUser();
       }, []);
 
-
-      
-
   const [formData, setFormData] = useState({
     case_no: "",
     case_description: "",
@@ -78,8 +69,6 @@ export default function AccOagReferralPage() {
     try {
       const res = await fetch("/api/acc-oag-referrals");
       const data = await res.json();
-console.log("REFRESHED DATA:", data); // ✅ PUT HERE
-
       setReferrals(Array.isArray(data) ? data : []);
     } catch (error) {
       showNotification(error.message, "error");
@@ -88,7 +77,6 @@ console.log("REFRESHED DATA:", data); // ✅ PUT HERE
 
   useEffect(() => {
     fetchReferrals();
-    setOutcomeFiles([]);
   }, []);
 
   // ================== UpdateStatus ==================
@@ -119,107 +107,16 @@ const updateStatus = async (id, newStatus) => {
   }
 
   setReferrals((prev) =>
-  prev.map((item) =>
-    item._id === id
-      ? { ...item, status: newStatus }
-      : item
+    prev.map((item) =>
+      item._id === id ? { ...item, status: newStatus } : item
     )
   );
 };
 
 
-// ================== SAVE OUTCOME AND UPLOAD MULTIPLE FILE UPLOAD.  ==================
-const handleSaveOutcome = async (caseId) => {
-  try {
-    console.log("Sending ID:", caseId);
 
-    const token = localStorage.getItem("token");
 
-    const formData = new FormData();
-
-    // ✅ FIXED
-    formData.append("_id", caseId);
-    formData.append("outcomeText", outcomeText);
-
-    if (outcomeFiles && outcomeFiles.length > 0) {
-      outcomeFiles.forEach((file) => {
-        formData.append("file", file);
-      });
-    }
-
-    const res = await fetch("/api/acc-oag-referrals/outcome", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    console.log("Response:", data);
-
-    if (!res.ok) {
-      alert(data.error || "Failed to save outcome");
-      return;
-    }
-
-    alert("Outcome saved successfully");
-
-    fetchReferrals();
-
-    setOutcomeFiles([]); // ✅ better than setOutcomeFile(null)
-
-  } catch (err) {
-    console.error("Save Outcome Error:", err);
-    alert("Something went wrong while saving outcome");
-  }
-};
-
-// ================== HANDLE FILE SELECTION ==================
-const handleFileChange = (e) => {
-  const files = Array.from(e.target.files);
-
-  // Append newly selected files
-  setOutcomeFiles((prev) => [...prev, ...files]);
-
-  // Reset input so same file can be selected again
-  e.target.value = null;
-};
-// ================== REMOVE SELECTED FILE FUNCTION==================
-const handleRemoveSelectedFile = (index) => {
-  setOutcomeFiles((prev) => prev.filter((_, i) => i !== index));
-};
-
-// ==================DELETE UPLOAD FILE==================
-const handleDeleteFile = async (file, referralId) => {
-  if (!confirm(`Delete file "${file.filename}"?`)) return;
-
-  try {
-    const res = await fetch("/api/acc-oag-referrals/delete-file", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        referralId,
-        filePath: file.path,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || "Delete failed");
-
-    // Refresh UI after delete
-    fetchReferrals();
-
-    showNotification("File deleted successfully", "success");
-  } catch (error) {
-    showNotification(error.message, "error");
-  }
-};
-
+  
 
   // ================== FORM HANDLERS ==================
   const handleFormChange = (e) => {
@@ -696,11 +593,9 @@ const handleDeleteFile = async (file, referralId) => {
 
                         {/* VIEW */}
                         <button
-                          onClick={() => {
-                              setExpandedRow(expandedRow === r._id ? null : r._id);
-                              setOutcomeText(r.outcome?.text || ""); // ✅ LOAD FROM DB HERE
-                              setSelectedCase(r); // ✅ ADD THIS
-                            }}
+                          onClick={() =>
+                            setExpandedRow(expandedRow === r._id ? null : r._id)
+                          }
                           className="text-gray-500 hover:text-gray-700 transition"
                           title="View"
                         >
@@ -836,211 +731,6 @@ const handleDeleteFile = async (file, referralId) => {
       )}
     </div>
 
-
-
-{/* CASE COMMUNICATION (COLLAPSIBLE UI) */}
-<div className="mt-6">
-
-  {/* HEADER */}
-  <div className="mb-4">
-    <h3 className="text-md font-semibold text-gray-800">
-      Case Communication.
-    </h3>
-  </div>
-
-  {/* ================= OUTCOME ================= */}
-  <div className="mb-3">
-  <button
-    className="w-full flex justify-between items-center px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded"
-    onClick={() => setExpandedOutcome(!expandedOutcome)}
-  >
-    <span className="font-medium">Outcome of the Case</span>
-    <span className="text-lg">
-      {expandedOutcome ? "−" : "+"}
-    </span>
-  </button>
-
-  {expandedOutcome && (
-    <div className="p-4 bg-white space-y-4">
-
-      {/* TEXTAREA */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Case Outcome
-        </label>
-        <textarea
-        value={outcomeText}
-          //value={r.outcome?.text || outcomeText}
-          //onChange={(e) => setOutcomeText(e.target.value)}
-          onChange={(e) => setOutcomeText(e.target.value)} // ✅ allows editing
-          placeholder="Write outcome of the case..."
-          className="w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50"
-          rows={4}
-        />
-      </div>
-
-      {/* FILE UPLOAD */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Upload Supporting Document
-        </label>
-        <input
-          type="file"
-          multiple
-          onChange={handleFileChange}
-          className="w-full text-sm border rounded-lg px-3 py-2 bg-white"
-        />
-      </div>
-
-  {/* ================= PREVIEW SELECTED FILES BEFORE UPLOAD ================= */}
-    <div className="mt-3 space-y-2">
-  {outcomeFiles.map((file, index) => {
-    const isImage = file.type.startsWith("image/");
-    const isPdf = file.type === "application/pdf";
-
-    return (
-      <div
-        key={index}
-        className="flex items-center justify-between bg-gray-100 px-3 py-2 rounded"
-      >
-        <div className="flex items-center gap-2">
-          <span>
-            {isImage ? "🖼" : isPdf ? "📄" : "📎"}
-          </span>
-
-          <span className="text-sm">
-            {file.name}
-          </span>
-        </div>
-
-        <button
-          onClick={() => handleRemoveSelectedFile(index)}
-          className="text-red-500 text-sm"
-        >
-          ✕
-        </button>
-      </div>
-    );
-  })}
-</div>
-
-
-   {/* ================= FILE UPLOAD DISPLAY ================= */}
-
-   <div className="mt-4 flex flex-wrap gap-2">
-  {r.outcome?.files?.map((file) => {
-    const isImage = file.filename.match(/\.(jpg|jpeg|png|gif)$/i);
-    const isPdf = file.filename.match(/\.pdf$/i);
-
-    return (
-      <div
-        key={file.path}
-        className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full"
-      >
-        <a
-          href={file.path}
-          target="_blank"
-          className="flex items-center gap-1 text-blue-600 underline text-sm"
-          title={file.filename}
-        >
-          <span>
-            {isImage ? "🖼" : isPdf ? "📄" : "📎"}
-          </span>
-          {file.filename}
-        </a>
-
-        <button
-          onClick={() => handleDeleteFile(file, r._id)}
-          className="text-red-500 text-sm ml-1"
-        >
-          ✕
-        </button>
-      </div>
-    );
-  })}
-</div>
- {/* ================= SAVE BUTTON ================= */}
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => handleSaveOutcome(r._id)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-        >
-          Save Outcome
-        </button>
-      </div>
-
-    </div>
-  )}
-</div>
-
-  {/* ================= MINUTES ================= */}
-  <div className="mb-3">
-    <button
-      className="w-full flex justify-between items-center px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded"
-      onClick={() => setExpandedMinutes(!expandedMinutes)}
-    >
-      <span className="font-medium">Minutes of Meeting</span>
-      <span className="text-lg">
-        {expandedMinutes ? "−" : "+"}
-      </span>
-    </button>
-
-    {expandedMinutes && (
-      <div className="p-4 space-y-2 bg-white">
-        <div className="rounded p-3 bg-gray-50">
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-medium text-gray-800">
-              Minutes of Meeting
-            </span>
-            <span className="text-xs text-gray-500">2026-03-21</span>
-          </div>
-          <p className="text-sm text-gray-700">
-            Need clarification on the accused statement submitted earlier.
-          </p>
-        </div>
-      </div>
-    )}
-  </div>
-
-  {/* ================= ADD COMMENT ================= */}
-  <div>
-    <button
-      className="w-full flex justify-between items-center px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded"
-      onClick={() => setExpandedComment(!expandedComment)}
-    >
-      <span className="font-medium">Add Comments</span>
-      <span className="text-lg">
-        {expandedComment ? "−" : "+"}
-      </span>
-    </button>
-
-    {expandedComment && (
-      <div className="p-4 bg-white">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Add any comments
-        </label>
-
-        <textarea
-          placeholder="Write your comment here..."
-          className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          rows={3}
-        />
-
-        <div className="flex justify-end mt-2">
-          <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-            type="button"
-          >
-            Submit Comment
-          </button>
-        </div>
-      </div>
-    )}
-  </div>
-
-</div>
   </div>
 </td>
 

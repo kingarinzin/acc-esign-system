@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 
 const COLLECTION_NAME = "acc_oag_referrals";
 
 // ================= GET =================
-export async function GET(req) {
+export async function GET() {
   try {
-    const user = verifyToken(req); // 🔐 verify token
-
-  
-    // if token invalid → jwt.verify will throw automatically
-
     const { db } = await connectToDatabase();
 
     const referrals = await db
@@ -22,34 +16,19 @@ export async function GET(req) {
 
     return NextResponse.json(referrals);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 401 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 // ================= POST =================
 export async function POST(req) {
   try {
-    const authHeader = req.headers.get("authorization");
-    console.log("AUTH HEADER:", authHeader);
-
-    const auth = verifyToken(req); // ✅ get full object
-    console.log("DECODED USER:", auth);
-
-    const user = auth.decoded; // ✅ extract decoded
-    console.log("ROLE:", user.role);
-
-    if (user.role !== "ACC_USER") {
-      return NextResponse.json(
-        { error: "Forbidden: Only ACC can create referrals" },
-        { status: 403 }
-      );
-    }
-
     const { db } = await connectToDatabase();
     const data = await req.json();
 
     data.status = data.status || "Pending";
 
+    // ensure accused_details exists
     if (!data.accused_details) {
       data.accused_details = [];
     }
@@ -61,16 +40,13 @@ export async function POST(req) {
       { status: 201 }
     );
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 401 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 // ================= PUT =================
 export async function PUT(req) {
   try {
-    const auth = verifyToken(req);   // ✅ full object
-    const user = auth.decoded;       // ✅ extract decoded
-
     const { db } = await connectToDatabase();
     const data = await req.json();
 
@@ -86,27 +62,13 @@ export async function PUT(req) {
 
     if (!existing) throw new Error("Record not found");
 
-    let updated;
-
-    if (user.role === "OAG_USER") {
-      // OAG can only update status
-      updated = {
-        ...existing,
-        status: rest.status || existing.status,
-        updated_at: new Date(),
-      };
-    } else if (user.role === "ACC_USER") {
-      // ACC full edit
-      updated = {
-        ...existing,
-        ...rest,
-        accused_details:
-          rest.accused_details || existing.accused_details || [],
-        updated_at: new Date(),
-      };
-    } else {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const updated = {
+      ...existing,
+      ...rest,
+      accused_details:
+        rest.accused_details || existing.accused_details || [],
+      updated_at: new Date(),
+    };
 
     await db.collection(COLLECTION_NAME).updateOne(
       { _id: new ObjectId(_id) },
@@ -115,23 +77,13 @@ export async function PUT(req) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 401 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 // ================= DELETE =================
 export async function DELETE(req) {
   try {
-    const auth = verifyToken(req);   // ✅ full object
-    const user = auth.decoded;       // ✅ extract decoded
-
-    if (user.role !== "ACC_USER") {
-      return NextResponse.json(
-        { error: "Forbidden: Only ACC can delete" },
-        { status: 403 }
-      );
-    }
-
     const { db } = await connectToDatabase();
     const { _id } = await req.json();
 
@@ -145,6 +97,6 @@ export async function DELETE(req) {
 
     return NextResponse.json({ message: "Deleted successfully" });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 401 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -191,35 +191,18 @@ const handleRemoveSelectedFile = (index) => {
   setOutcomeFiles((prev) => prev.filter((_, i) => i !== index));
 };
 
-// ==================DELETE UPLOAD FILE==================
-const handleDeleteFile = async (file, referralId) => {
-  if (!confirm(`Delete file "${file.filename}"?`)) return;
+// ==================DELETE UPLOAD FILE.==================
+const handleDeleteFile = async (file, caseId) => {
+  await fetch(`/api/outcome/${caseId}/file`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ path: file.path }),
+  });
 
-  try {
-    const res = await fetch("/api/acc-oag-referrals/delete-file", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        referralId,
-        filePath: file.path,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || "Delete failed");
-
-    // Refresh UI after delete
-    fetchReferrals();
-
-    showNotification("File deleted successfully", "success");
-  } catch (error) {
-    showNotification(error.message, "error");
-  }
+  // Refresh UI after delete
 };
-
 
   // ================== FORM HANDLERS ==================
   const handleFormChange = (e) => {
@@ -735,7 +718,7 @@ const handleDeleteFile = async (file, referralId) => {
       <p className="font-medium text-gray-800">{r.investigator_detail}</p>
     </div>
 
- {/* ================= for update status.  ================= */}
+ {/* ================= UPDTATE STAUTS OF THE CASE================= */}
 
 <div>
   <p className="text-gray-500">Status</p>
